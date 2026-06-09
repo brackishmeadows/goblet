@@ -194,6 +194,10 @@ square root of two is greater than one becomes true
 square root of two is less than seventeen twelfths becomes true
 square root of three is greater than nineteen elevenths becomes true
 square root of four equals two becomes true
+cube root of eight equals two becomes true
+cube root of two is less than nine sevenths becomes true
+fourth root of sixteen equals two becomes true
+fifth root of thirty two equals two becomes true
 ```
 
 Comparison uses interval logic for bounded values. For finite bounded ranges, `likely` means the satisfying subrange is more than half of the total range. For unbounded ranges, the tool avoids likelihood language and names the hinge instead.
@@ -236,14 +240,19 @@ could be true if the left value lands above the right value
 could be false if the left value lands at or below the right value
 ```
 
-## Square Root Bounds
+## Root Bounds
 
-Goblet does not use decimals. It can still compare square roots:
+Goblet does not use decimals. It can still compare named roots:
 
 ```text
 square root of two
 square root of three
 square root of four
+cube root of two
+cube root of eight
+third root of eight
+fourth root of sixteen
+fifth root of thirty two
 ```
 
 For irrational results, it searches for a rational cage it can prove:
@@ -256,9 +265,12 @@ For exact square roots, it collapses to the exact value:
 
 ```text
 square root of four equals two becomes true
+cube root of eight equals two becomes true
+fourth root of sixteen equals two becomes true
+fifth root of thirty two equals two becomes true
 ```
 
-The trace proves the bounds by squaring the candidate fraction parts:
+The trace proves the bounds by raising the candidate fraction parts to the root order:
 
 ```powershell
 & ..\tools\python-3.13.13-embed-amd64\python.exe run.py --trace "square root of two is greater than one"
@@ -288,6 +300,7 @@ comparison becomes true
 ```
 
 This is intentionally a cage, not an exact decimal approximation. Tighter rational cages are possible, but only if Goblet can prove them without overflowing its current whole-number ceiling.
+When a candidate proof overflows, Goblet stops working that candidate and moves on.
 
 ## Trace Mode
 
@@ -442,7 +455,7 @@ two over one hundred and five
 
 - No decimals.
 - No values less than zero.
-- Square-root support searches for provable rational cages inside the current symbolic ceiling.
+- Root support searches for provable rational cages inside the current symbolic ceiling.
 - Public addition and subtraction support exact whole numbers and bounded whole-number intervals.
 - Public addition and subtraction support exact fractions and mixed numbers.
 - Random ranges only generate whole numbers.
