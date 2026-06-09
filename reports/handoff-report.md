@@ -50,6 +50,8 @@ Forbidden:
 
 Current source scan found none of those forbidden operators in the core arithmetic modules.
 
+The test suite includes a static cheat detector in `tests/test_no_cheating.py`.
+
 ## Current Output Policy
 
 Numbers render in British style when hundreds have a nonzero tail:
@@ -446,7 +448,7 @@ seven is prime
 
 ## Next Useful Moves
 
-1. Add a formal cheat-detector test that fails if forbidden arithmetic operators appear in core modules.
+1. Keep the cheat-detector test current as the arithmetic surface grows.
 2. Add a stronger exact rational comparison path for cases where symbolic cross-products overflow.
 3. Add random expression generation, such as choosing random dividend and divisor phrases for puzzle prompts.
 4. Add trace output for symbolic comparisons.

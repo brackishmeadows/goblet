@@ -419,3 +419,5 @@ ordinary *
 ```
 
 The machine is allowed to use Python for control flow, data structures, tests, and random selection. The arithmetic itself must move through symbolic word rules.
+
+The test suite includes a static cheat detector that scans core modules for forbidden numeric parsing and arithmetic shortcuts.

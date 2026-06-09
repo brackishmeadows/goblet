@@ -224,6 +224,8 @@ ordinary *
 
 Python is allowed for control flow, data structures, tests, and random selection. The arithmetic itself moves through symbolic word rules.
 
+The test suite includes a static cheat detector for these shortcuts.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
