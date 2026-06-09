@@ -190,6 +190,8 @@ six divided by a large number is less than one becomes true
 six divided by a large number equals zero becomes false
 at most five is less than five becomes likely true; false only if it is five
 at most five is greater than four becomes likely false; true for values greater than four and at most five
+square root of two is greater than one becomes true
+square root of two is less than seventeen twelfths becomes true
 ```
 
 Comparison uses interval logic for bounded values. For finite bounded ranges, `likely` means the satisfying subrange is more than half of the total range. For unbounded ranges, the tool avoids likelihood language and names the hinge instead.
@@ -231,6 +233,51 @@ not guaranteed because the ranges overlap
 could be true if the left value lands above the right value
 could be false if the left value lands at or below the right value
 ```
+
+## Named Irrational Bounds
+
+Goblet does not use decimals. It can still compare the named irrational:
+
+```text
+square root of two
+```
+
+It places that value inside a rational cage:
+
+```text
+greater than twenty four seventeenths and less than seventeen twelfths
+```
+
+The trace proves the bounds by squaring the candidate fraction parts:
+
+```powershell
+& ..\tools\python-3.13.13-embed-amd64\python.exe run.py --trace "square root of two is greater than one"
+```
+
+Output:
+
+```text
+square root of two is greater than one
+finding bounds for square root of two
+testing twenty four seventeenths
+twenty four times twenty four becomes five hundred and seventy six
+seventeen times seventeen becomes two hundred and eighty nine
+two times two hundred and eighty nine becomes five hundred and seventy eight
+five hundred and seventy six is less than five hundred and seventy eight
+twenty four seventeenths is below square root of two
+testing seventeen twelfths
+seventeen times seventeen becomes two hundred and eighty nine
+twelve times twelve becomes one hundred and forty four
+two times one hundred and forty four becomes two hundred and eighty eight
+two hundred and eighty nine is greater than two hundred and eighty eight
+seventeen twelfths is above square root of two
+square root of two is greater than twenty four seventeenths and less than seventeen twelfths
+left range: greater than twenty four seventeenths and less than seventeen twelfths
+right range: exactly one
+comparison becomes true
+```
+
+This is intentionally a cage, not an exact decimal approximation. Tighter rational cages are possible, but only if Goblet can prove them without overflowing its current whole-number ceiling.
 
 ## Trace Mode
 
@@ -385,7 +432,7 @@ two over one hundred and five
 
 - No decimals.
 - No values less than zero.
-- No irrational numbers.
+- Irrational support is currently limited to `square root of two`.
 - Public addition and subtraction support exact whole numbers and bounded whole-number intervals.
 - Public addition and subtraction support exact fractions and mixed numbers.
 - Random ranges only generate whole numbers.

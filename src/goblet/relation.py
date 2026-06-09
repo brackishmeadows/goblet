@@ -10,9 +10,10 @@ from .divide import (
     parse_division_expression,
     quotient_and_remainder,
 )
+from .fraction import parse_rational as parse_fraction_rational
 from .multiply import multiply
 from .normalize import parse_number
-from .render import render_mixed, render_number
+from .render import render_fraction, render_mixed, render_number
 from .words import LARGE_NUMBER, ONE, SymbolicNumber, WordNumber, ZERO, is_large_number, is_unknown_number
 
 TWO = WordNumber("zero", "zero", "two")
@@ -34,6 +35,8 @@ class Bound:
 class Interval:
     lower: Bound
     upper: Bound
+    lower_open: bool = False
+    upper_open: bool = False
 
 
 def relation_expression(expression: str) -> str:
@@ -49,12 +52,16 @@ def trace_relation_expression(expression: str) -> list[str]:
     right = parse_interval(right_text)
     result = evaluate_relation(left, operator, right)
     explanation = explain_relation(left, operator, right)
-    steps = [
-        expression,
-        f"left range: {render_interval(left)}",
-        f"right range: {render_interval(right)}",
-        f"comparison becomes {explanation}",
-    ]
+    steps = [expression]
+    steps.extend(irrational_trace_steps(left_text))
+    steps.extend(irrational_trace_steps(right_text))
+    steps.extend(
+        [
+            f"left range: {render_interval(left)}",
+            f"right range: {render_interval(right)}",
+            f"comparison becomes {explanation}",
+        ]
+    )
     if result == "unknown":
         if has_unknown_bound(left) or has_unknown_bound(right):
             steps.append("unknown because a value could not be placed")
@@ -105,16 +112,21 @@ def parse_relation_expression(expression: str) -> tuple[str, str, str]:
 
 
 def parse_interval(text: str) -> Interval:
+    if text == "square root of two":
+        return square_root_two_interval()
     if text.startswith("at least "):
         base = parse_interval(text[len("at least ") :])
-        return Interval(base.lower, infinity_bound())
+        return Interval(base.lower, infinity_bound(), lower_open=base.lower_open)
     if text.startswith("at most "):
         base = parse_interval(text[len("at most ") :])
-        return Interval(finite_bound(ZERO), base.upper)
+        return Interval(finite_bound(ZERO), base.upper, upper_open=base.upper_open)
     if " divided by " in text:
         return parse_division_interval(text)
 
-    value = parse_number(text)
+    try:
+        value = parse_number(text)
+    except ValueError:
+        return exact_interval(rational_from_fraction_text(text))
     if is_unknown_number(value):
         return Interval(unknown_bound(), unknown_bound())
     if is_large_number(value):
@@ -249,6 +261,8 @@ def evaluate_greater_than(left: Interval, right: Interval) -> str:
     lower_vs_upper = compare_bounds(left.lower, right.upper)
     if lower_vs_upper == "greater":
         return "true"
+    if lower_vs_upper == "equal" and (left.lower_open or right.upper_open):
+        return "true"
     upper_vs_lower = compare_bounds(left.upper, right.lower)
     if upper_vs_lower in ("less", "equal"):
         return "false"
@@ -258,6 +272,8 @@ def evaluate_greater_than(left: Interval, right: Interval) -> str:
 def evaluate_less_than(left: Interval, right: Interval) -> str:
     upper_vs_lower = compare_bounds(left.upper, right.lower)
     if upper_vs_lower == "less":
+        return "true"
+    if upper_vs_lower == "equal" and (left.upper_open or right.lower_open):
         return "true"
     lower_vs_upper = compare_bounds(left.lower, right.upper)
     if lower_vs_upper in ("greater", "equal"):
@@ -270,7 +286,11 @@ def evaluate_equals(left: Interval, right: Interval) -> str:
         return "true" if compare_bounds(left.lower, right.lower) == "equal" else "false"
     if compare_bounds(left.upper, right.lower) == "less":
         return "false"
+    if compare_bounds(left.upper, right.lower) == "equal" and (left.upper_open or right.lower_open):
+        return "false"
     if compare_bounds(left.lower, right.upper) == "greater":
+        return "false"
+    if compare_bounds(left.lower, right.upper) == "equal" and (left.lower_open or right.upper_open):
         return "false"
     return "unknown"
 
@@ -282,6 +302,8 @@ def evaluate_at_least(left: Interval, right: Interval) -> str:
     upper_vs_lower = compare_bounds(left.upper, right.lower)
     if upper_vs_lower == "less":
         return "false"
+    if upper_vs_lower == "equal" and (left.upper_open or right.lower_open):
+        return "false"
     return "unknown"
 
 
@@ -291,6 +313,8 @@ def evaluate_at_most(left: Interval, right: Interval) -> str:
         return "true"
     lower_vs_upper = compare_bounds(left.lower, right.upper)
     if lower_vs_upper == "greater":
+        return "false"
+    if lower_vs_upper == "equal" and (left.lower_open or right.upper_open):
         return "false"
     return "unknown"
 
@@ -379,15 +403,73 @@ def compare_rationals(left: Rational, right: Rational) -> str:
     return compare(left_product, right_product)
 
 
+def square_root_two_interval() -> Interval:
+    return Interval(
+        finite_bound(Rational(WordNumber("zero", "two", "four"), WordNumber("zero", "one", "seven"))),
+        finite_bound(Rational(WordNumber("zero", "one", "seven"), WordNumber("zero", "one", "two"))),
+        lower_open=True,
+        upper_open=True,
+    )
+
+
+def irrational_trace_steps(text: str) -> list[str]:
+    if text != "square root of two":
+        return []
+    lower = Rational(WordNumber("zero", "two", "four"), WordNumber("zero", "one", "seven"))
+    upper = Rational(WordNumber("zero", "one", "seven"), WordNumber("zero", "one", "two"))
+    steps = ["finding bounds for square root of two"]
+    steps.extend(square_root_two_bound_steps(lower, "below"))
+    steps.extend(square_root_two_bound_steps(upper, "above"))
+    steps.append(f"square root of two is {render_interval(square_root_two_interval())}")
+    return steps
+
+
+def square_root_two_bound_steps(value: Rational, side: str) -> list[str]:
+    numerator_square = multiply(value.numerator, value.numerator)
+    denominator_square = multiply(value.denominator, value.denominator)
+    doubled_denominator_square = multiply(TWO, denominator_square)
+    comparison = compare(numerator_square, doubled_denominator_square)
+    relation_word = "less than" if comparison == "less" else "greater than"
+    return [
+        f"testing {render_improper_rational(value)}",
+        (
+            f"{render_number(value.numerator)} times {render_number(value.numerator)} "
+            f"becomes {render_number(numerator_square)}"
+        ),
+        (
+            f"{render_number(value.denominator)} times {render_number(value.denominator)} "
+            f"becomes {render_number(denominator_square)}"
+        ),
+        (
+            f"two times {render_number(denominator_square)} "
+            f"becomes {render_number(doubled_denominator_square)}"
+        ),
+        (
+            f"{render_number(numerator_square)} is {relation_word} "
+            f"{render_number(doubled_denominator_square)}"
+        ),
+        f"{render_improper_rational(value)} is {side} square root of two",
+    ]
+
+
 def render_interval(value: Interval) -> str:
     if value.lower.kind == "unknown" or value.upper.kind == "unknown":
         return "an unknown number"
-    if value.lower == value.upper:
+    if value.lower == value.upper and not value.lower_open and not value.upper_open:
         return f"exactly {render_bound(value.lower)}"
     if value.upper.kind == "infinity":
         return f"at least {render_bound(value.lower)}"
     if value.lower.kind == "above_zero":
         return f"greater than zero and at most {render_bound(value.upper)}"
+    if value.lower_open and value.upper_open:
+        return (
+            f"greater than {render_open_bound(value.lower)} "
+            f"and less than {render_open_bound(value.upper)}"
+        )
+    if value.lower_open:
+        return f"greater than {render_open_bound(value.lower)} and at most {render_bound(value.upper)}"
+    if value.upper_open:
+        return f"at least {render_bound(value.lower)} and less than {render_open_bound(value.upper)}"
     if value.lower.kind == "finite" and compare_rationals(
         _rational(value.lower), rational_from_whole(ZERO)
     ) == "equal":
@@ -413,9 +495,19 @@ def render_bound(value: Bound) -> str:
     return "unknown"
 
 
+def render_open_bound(value: Bound) -> str:
+    if value.kind == "finite":
+        return render_improper_rational(_rational(value))
+    return render_bound(value)
+
+
 def render_rational(value: Rational) -> str:
     quotient, remainder = quotient_and_remainder(value.numerator, value.denominator)
     return render_mixed(quotient, remainder, value.denominator)
+
+
+def render_improper_rational(value: Rational) -> str:
+    return render_fraction(value.numerator, value.denominator)
 
 
 def render_greater_range(interval: Interval, threshold: Rational, operator: str) -> str:
@@ -497,6 +589,13 @@ def rational_from_mixed(
     return Rational(improper, denominator)
 
 
+def rational_from_fraction_text(text: str) -> Rational:
+    value = parse_fraction_rational(text)
+    if is_large_number(value.numerator) or is_large_number(value.denominator):
+        raise ValueError("unbounded fraction is not supported in relation comparisons")
+    return Rational(value.numerator, value.denominator)
+
+
 def exact_interval(value: Rational) -> Interval:
     bound = finite_bound(value)
     return Interval(bound, bound)
@@ -529,7 +628,12 @@ def unknown_bound() -> Bound:
 
 
 def is_exact_finite(value: Interval) -> bool:
-    return value.lower == value.upper and value.lower.kind == "finite"
+    return (
+        value.lower == value.upper
+        and value.lower.kind == "finite"
+        and not value.lower_open
+        and not value.upper_open
+    )
 
 
 def is_finite_bounded(value: Interval) -> bool:

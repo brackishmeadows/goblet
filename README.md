@@ -27,6 +27,9 @@ six divided by a large number
 at most five is greater than four
 -> likely false; true for values greater than four and at most five
 
+square root of two is less than seventeen twelfths
+-> true
+
 an unknown number is greater than five
 -> unknown
 ```
@@ -40,6 +43,7 @@ an unknown number is greater than five
 - Bounded values such as `at least five`, `at most twelve`, and `a large number`
 - A distinct `an unknown number` value for cases where exact scale is lost
 - Symbolic comparisons with `true`, `false`, `unknown`, exception clauses, and finite-range likelihood clauses
+- Named irrational bounds for `square root of two`
 - Trace mode that explains rewrite steps, bounds, true regions, and false regions
 - No ordinary numeric conversion in the arithmetic path
 
@@ -124,6 +128,9 @@ six divided by a large number equals zero
 
 at most five is less than five
 -> likely true; false only if it is five
+
+square root of two is greater than twenty four seventeenths
+-> true
 ```
 
 Trace mode:
@@ -165,6 +172,33 @@ five sixths is already reduced
 one half plus one third becomes five sixths
 ```
 
+Irrational trace:
+
+```powershell
+python run.py --trace "square root of two is greater than one"
+```
+
+```text
+square root of two is greater than one
+finding bounds for square root of two
+testing twenty four seventeenths
+twenty four times twenty four becomes five hundred and seventy six
+seventeen times seventeen becomes two hundred and eighty nine
+two times two hundred and eighty nine becomes five hundred and seventy eight
+five hundred and seventy six is less than five hundred and seventy eight
+twenty four seventeenths is below square root of two
+testing seventeen twelfths
+seventeen times seventeen becomes two hundred and eighty nine
+twelve times twelve becomes one hundred and forty four
+two times one hundred and forty four becomes two hundred and eighty eight
+two hundred and eighty nine is greater than two hundred and eighty eight
+seventeen twelfths is above square root of two
+square root of two is greater than twenty four seventeenths and less than seventeen twelfths
+left range: greater than twenty four seventeenths and less than seventeen twelfths
+right range: exactly one
+comparison becomes true
+```
+
 Random range:
 
 ```powershell
@@ -200,7 +234,7 @@ Field-office local Python command:
 
 - No decimals
 - No values less than zero
-- No irrational numbers
+- Irrational support is currently limited to `square root of two`
 - Inputs are bounded to English cardinal phrases from `zero` through `nine hundred and ninety nine`
 - Some exact fraction comparisons can become `unknown` if symbolic cross-products overflow the supported ceiling
 - Some fraction arithmetic can become `an unknown number` if exact scale is lost after symbolic overflow

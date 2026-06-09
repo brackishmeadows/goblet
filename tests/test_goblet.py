@@ -79,6 +79,14 @@ class SymbolicArithmeticTests(unittest.TestCase):
             ("at least five equals five", "true only if it is five"),
             ("six divided by a large number is at most one", "true"),
             ("a large number divided by five is at least two hundred", "true"),
+            ("square root of two is greater than one", "true"),
+            ("square root of two is less than two", "true"),
+            ("square root of two equals one", "false"),
+            ("square root of two is greater than twenty four seventeenths", "true"),
+            ("square root of two is less than seventeen twelfths", "true"),
+            ("square root of two equals twenty four seventeenths", "false"),
+            ("square root of two equals seventeen twelfths", "false"),
+            ("square root of two is greater than seventeen twelfths", "false"),
             ("an unknown number is greater than five", "unknown"),
             ("an unknown number equals an unknown number", "unknown"),
         ]
@@ -141,6 +149,26 @@ class SymbolicArithmeticTests(unittest.TestCase):
                 "an unknown number may be less than, equal to, or greater than the other side",
             ],
         )
+
+        trace = trace_relation_expression("square root of two is greater than one")
+        self.assertIn("finding bounds for square root of two", trace)
+        self.assertIn("testing twenty four seventeenths", trace)
+        self.assertIn(
+            "five hundred and seventy six is less than five hundred and seventy eight",
+            trace,
+        )
+        self.assertIn("twenty four seventeenths is below square root of two", trace)
+        self.assertIn("testing seventeen twelfths", trace)
+        self.assertIn(
+            "two hundred and eighty nine is greater than two hundred and eighty eight",
+            trace,
+        )
+        self.assertIn("seventeen twelfths is above square root of two", trace)
+        self.assertIn(
+            "left range: greater than twenty four seventeenths and less than seventeen twelfths",
+            trace,
+        )
+        self.assertEqual(trace[-1], "comparison becomes true")
 
     def test_subtract(self):
         cases = [
