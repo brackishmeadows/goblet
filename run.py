@@ -4,7 +4,7 @@ import sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent / "src"))
 
 from goblet.divide import divide_expression, trace_divide_expression
-from goblet.arithmetic import arithmetic_expression
+from goblet.arithmetic import arithmetic_expression, trace_arithmetic_expression
 from goblet.multiply import multiply_expression, trace_multiply_expression
 from goblet.prime import prime_expression, trace_prime_expression
 from goblet.random_range import random_number_between
@@ -82,7 +82,7 @@ def evaluate_expression(expression: str) -> str:
 
 def trace_expression(expression: str) -> list[str]:
     if is_arithmetic_expression(expression):
-        return [expression, arithmetic_expression(expression)]
+        return trace_arithmetic_expression(expression)
     if is_relation_expression(expression):
         return trace_relation_expression(expression)
     if " divided by " in expression.lower():

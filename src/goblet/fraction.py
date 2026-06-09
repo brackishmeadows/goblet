@@ -7,7 +7,7 @@ from .compare import compare
 from .divide import divide, parse_division_expression, quotient_and_remainder, reduce_fraction
 from .multiply import multiply
 from .normalize import parse_number
-from .render import render_mixed
+from .render import render_fraction, render_mixed, render_number
 from .subtract import subtract
 from .words import ONE, ORDINAL_SPECIAL, SymbolicNumber, WordNumber, ZERO, is_large_number
 
@@ -120,6 +120,89 @@ def render_rational(value: Rational) -> str:
         return "an unknown number"
     quotient, remainder = quotient_and_remainder(value.numerator, value.denominator)
     return render_mixed(quotient, remainder, value.denominator)
+
+
+def trace_fraction_operation(expression: str, operator: str, left_text: str, right_text: str) -> list[str]:
+    left = parse_rational(left_text)
+    right = parse_rational(right_text)
+    steps = [expression]
+
+    shared_denominator = multiply(left.denominator, right.denominator)
+    left_scaled = multiply(left.numerator, right.denominator)
+    right_scaled = multiply(right.numerator, left.denominator)
+
+    steps.extend(
+        rewrite_steps(
+            left,
+            left_scaled,
+            right.denominator,
+            shared_denominator,
+            left_text,
+        )
+    )
+    steps.extend(
+        rewrite_steps(
+            right,
+            right_scaled,
+            left.denominator,
+            shared_denominator,
+            right_text,
+        )
+    )
+
+    if is_large_number(shared_denominator) or is_large_number(left_scaled) or is_large_number(right_scaled):
+        steps.append("the shared-denominator rewrite overflowed the supported ceiling")
+        steps.append("the exact ratio cannot be placed")
+        steps.append(f"{expression} becomes an unknown number")
+        return steps
+
+    if operator == "plus":
+        numerator = add(left_scaled, right_scaled)
+        steps.append(
+            f"{render_fraction(left_scaled, shared_denominator)} plus "
+            f"{render_fraction(right_scaled, shared_denominator)} becomes "
+            f"{render_fraction(numerator, shared_denominator)}"
+        )
+        result = reduce_rational(Rational(numerator, shared_denominator))
+    else:
+        if compare(left_scaled, right_scaled) == "less":
+            raise ValueError("subtraction would be less than zero")
+        numerator = subtract(left_scaled, right_scaled)
+        steps.append(
+            f"{render_fraction(left_scaled, shared_denominator)} minus "
+            f"{render_fraction(right_scaled, shared_denominator)} becomes "
+            f"{render_fraction(numerator, shared_denominator)}"
+        )
+        result = reduce_rational(Rational(numerator, shared_denominator))
+
+    unreduced = Rational(numerator, shared_denominator)
+    if result == unreduced:
+        steps.append(f"{render_rational(result)} is already reduced")
+    else:
+        steps.append(f"{render_rational(unreduced)} reduces to {render_rational(result)}")
+    steps.append(f"{expression} becomes {render_rational(result)}")
+    return steps
+
+
+def rewrite_steps(
+    value: Rational,
+    scaled_numerator: SymbolicNumber,
+    scale: SymbolicNumber,
+    shared_denominator: SymbolicNumber,
+    original_text: str,
+) -> list[str]:
+    rendered = render_rational(value)
+    scale_words = render_number(scale)
+    steps = [
+        f"{rendered} needs {scale_words} to share a denominator",
+        f"{render_number(value.numerator)} times {scale_words} becomes {render_number(scaled_numerator)}",
+        f"{render_number(value.denominator)} times {scale_words} becomes {render_number(shared_denominator)}",
+    ]
+    if is_large_number(scaled_numerator) or is_large_number(shared_denominator):
+        steps.append(f"{original_text} becomes an unknown number")
+    else:
+        steps.append(f"{original_text} becomes {render_fraction(scaled_numerator, shared_denominator)}")
+    return steps
 
 
 def rational_from_mixed(

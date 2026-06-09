@@ -4,7 +4,7 @@ import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
-from goblet.arithmetic import arithmetic_expression
+from goblet.arithmetic import arithmetic_expression, trace_arithmetic_expression
 from goblet.compare import compare
 from goblet.divide import divide_expression, trace_divide_expression
 from goblet.increment import increment
@@ -191,6 +191,43 @@ class SymbolicArithmeticTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "cannot subtract an unbounded symbolic value"):
             arithmetic_expression("five minus at least three")
+
+    def test_fraction_trace_mode(self):
+        self.assertEqual(
+            trace_arithmetic_expression("one half plus one third"),
+            [
+                "one half plus one third",
+                "one half needs three to share a denominator",
+                "one times three becomes three",
+                "two times three becomes six",
+                "one half becomes three sixths",
+                "one third needs two to share a denominator",
+                "one times two becomes two",
+                "three times two becomes six",
+                "one third becomes two sixths",
+                "three sixths plus two sixths becomes five sixths",
+                "five sixths is already reduced",
+                "one half plus one third becomes five sixths",
+            ],
+        )
+
+        self.assertEqual(
+            trace_arithmetic_expression("two thirds minus one half"),
+            [
+                "two thirds minus one half",
+                "two thirds needs two to share a denominator",
+                "two times two becomes four",
+                "three times two becomes six",
+                "two thirds becomes four sixths",
+                "one half needs three to share a denominator",
+                "one times three becomes three",
+                "two times three becomes six",
+                "one half becomes three sixths",
+                "four sixths minus three sixths becomes one sixth",
+                "one sixth is already reduced",
+                "two thirds minus one half becomes one sixth",
+            ],
+        )
 
     def test_division_examples(self):
         cases = [

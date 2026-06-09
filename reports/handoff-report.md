@@ -289,6 +289,23 @@ two fifths is already reduced
 twenty seven divided by five becomes five and two fifths
 ```
 
+Fraction trace mode shows denominator sharing:
+
+```text
+one half plus one third
+one half needs three to share a denominator
+one times three becomes three
+two times three becomes six
+one half becomes three sixths
+one third needs two to share a denominator
+one times two becomes two
+three times two becomes six
+one third becomes two sixths
+three sixths plus two sixths becomes five sixths
+five sixths is already reduced
+one half plus one third becomes five sixths
+```
+
 ## Implementation Shape
 
 Core package:
@@ -405,6 +422,7 @@ seven is prime
 - Public addition and subtraction support exact fractions and mixed numbers.
 - Comparisons support exact values, exact division expressions, and bounded division expressions.
 - Comparison trace mode shows operand ranges and the conditions that would make an unknown comparison true or false.
+- Fraction trace mode shows denominator sharing, numerator rewriting, and reduction.
 - Finite bounded comparison traces show true and false regions when they can be rendered cleanly.
 - Finite bounded comparisons can return `likely true` or `likely false` when symbolic midpoint comparison shows one side occupies more than half the range.
 - Inputs only support English cardinal phrases from `zero` through `nine hundred and ninety nine`.

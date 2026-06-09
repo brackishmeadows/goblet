@@ -1,6 +1,6 @@
 import sys
 
-from .arithmetic import arithmetic_expression
+from .arithmetic import arithmetic_expression, trace_arithmetic_expression
 from .divide import divide_expression, trace_divide_expression
 from .multiply import multiply_expression, trace_multiply_expression
 from .prime import prime_expression, trace_prime_expression
@@ -79,7 +79,7 @@ def evaluate_expression(expression: str) -> str:
 
 def trace_expression(expression: str) -> list[str]:
     if is_arithmetic_expression(expression):
-        return [expression, arithmetic_expression(expression)]
+        return trace_arithmetic_expression(expression)
     if is_relation_expression(expression):
         return trace_relation_expression(expression)
     if " divided by " in expression.lower():

@@ -4,7 +4,13 @@ from dataclasses import dataclass
 
 from .add import add
 from .compare import compare
-from .fraction import add_rationals, parse_rational, render_rational, subtract_rationals
+from .fraction import (
+    add_rationals,
+    parse_rational,
+    render_rational,
+    subtract_rationals,
+    trace_fraction_operation,
+)
 from .normalize import parse_number
 from .render import render_number
 from .subtract import subtract
@@ -37,6 +43,17 @@ def arithmetic_expression(expression: str) -> str:
     raise ValueError(f"unsupported arithmetic operator: {operator}")
 
 
+def trace_arithmetic_expression(expression: str) -> list[str]:
+    left_text, operator, right_text = parse_arithmetic_expression(expression)
+    if (
+        not is_bounded_text(left_text)
+        and not is_bounded_text(right_text)
+        and (is_fraction_text(left_text) or is_fraction_text(right_text))
+    ):
+        return trace_fraction_operation(expression, operator, left_text, right_text)
+    return [expression, arithmetic_expression(expression)]
+
+
 def parse_arithmetic_expression(expression: str) -> tuple[str, str, str]:
     lowered = expression.lower()
     for marker, operator in ((" plus ", "plus"), (" minus ", "minus")):
@@ -48,6 +65,54 @@ def parse_arithmetic_expression(expression: str) -> tuple[str, str, str]:
 
 def is_bounded_text(text: str) -> bool:
     return text.startswith("at least ") or text.startswith("at most ")
+
+
+def is_fraction_text(text: str) -> bool:
+    return " over " in text or " and " in text or any(
+        text.endswith(f" {word}")
+        for word in (
+            "half",
+            "halves",
+            "third",
+            "thirds",
+            "quarter",
+            "quarters",
+            "fourth",
+            "fourths",
+            "fifth",
+            "fifths",
+            "sixth",
+            "sixths",
+            "seventh",
+            "sevenths",
+            "eighth",
+            "eighths",
+            "ninth",
+            "ninths",
+            "tenth",
+            "tenths",
+            "eleventh",
+            "elevenths",
+            "twelfth",
+            "twelfths",
+            "thirteenth",
+            "thirteenths",
+            "fourteenth",
+            "fourteenths",
+            "fifteenth",
+            "fifteenths",
+            "sixteenth",
+            "sixteenths",
+            "seventeenth",
+            "seventeenths",
+            "eighteenth",
+            "eighteenths",
+            "nineteenth",
+            "nineteenths",
+            "twentieth",
+            "twentieths",
+        )
+    )
 
 
 def parse_whole_interval(text: str) -> WholeInterval:

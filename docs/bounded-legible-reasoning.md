@@ -203,6 +203,6 @@ Keep the shed. Visit it. Do not let it move into the bedroom.
 
 ## Next Honest Moves
 
-- Add trace output that explains why exact fraction placement was lost.
+- Add trace output that explains why exact fraction placement was lost after overflow.
 - Add a cheat-detector test for forbidden arithmetic shortcuts.
 - Try one non-arithmetic controlled-English rule domain as a separate experiment.

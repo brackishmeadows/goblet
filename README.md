@@ -144,6 +144,27 @@ could be true if the left value lands above the right value
 could be false if the left value lands at or below the right value
 ```
 
+Fraction trace:
+
+```powershell
+python run.py --trace "one half plus one third"
+```
+
+```text
+one half plus one third
+one half needs three to share a denominator
+one times three becomes three
+two times three becomes six
+one half becomes three sixths
+one third needs two to share a denominator
+one times two becomes two
+three times two becomes six
+one third becomes two sixths
+three sixths plus two sixths becomes five sixths
+five sixths is already reduced
+one half plus one third becomes five sixths
+```
+
 Random range:
 
 ```powershell

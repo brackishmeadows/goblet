@@ -273,6 +273,29 @@ nine plus three becomes twelve; count becomes four
 three times four becomes twelve
 ```
 
+Fraction trace:
+
+```powershell
+& ..\tools\python-3.13.13-embed-amd64\python.exe run.py --trace "one half plus one third"
+```
+
+Output:
+
+```text
+one half plus one third
+one half needs three to share a denominator
+one times three becomes three
+two times three becomes six
+one half becomes three sixths
+one third needs two to share a denominator
+one times two becomes two
+three times two becomes six
+one third becomes two sixths
+three sixths plus two sixths becomes five sixths
+five sixths is already reduced
+one half plus one third becomes five sixths
+```
+
 ## Random Whole Numbers
 
 Command:
@@ -370,6 +393,7 @@ two over one hundred and five
 - Division uses `at least` and `at most` as output-only bound language.
 - Comparisons support exact values, exact division expressions, and bounded division expressions.
 - Comparison trace mode shows operand ranges and the conditions that would make an unknown comparison true or false.
+- Fraction trace mode shows denominator sharing, numerator rewriting, and reduction.
 - Finite bounded comparison traces show true and false regions when they can be rendered cleanly.
 - Finite bounded comparisons can return `likely true` or `likely false` when symbolic midpoint comparison shows one side occupies more than half the range.
 - Fractions with `a large number` as a bound denominator are not reduced yet.
