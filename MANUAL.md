@@ -192,6 +192,8 @@ at most five is less than five becomes likely true; false only if it is five
 at most five is greater than four becomes likely false; true for values greater than four and at most five
 square root of two is greater than one becomes true
 square root of two is less than seventeen twelfths becomes true
+square root of three is greater than nineteen elevenths becomes true
+square root of four equals two becomes true
 ```
 
 Comparison uses interval logic for bounded values. For finite bounded ranges, `likely` means the satisfying subrange is more than half of the total range. For unbounded ranges, the tool avoids likelihood language and names the hinge instead.
@@ -234,18 +236,26 @@ could be true if the left value lands above the right value
 could be false if the left value lands at or below the right value
 ```
 
-## Named Irrational Bounds
+## Square Root Bounds
 
-Goblet does not use decimals. It can still compare the named irrational:
+Goblet does not use decimals. It can still compare square roots:
 
 ```text
 square root of two
+square root of three
+square root of four
 ```
 
-It places that value inside a rational cage:
+For irrational results, it searches for a rational cage it can prove:
 
 ```text
 greater than twenty four seventeenths and less than seventeen twelfths
+```
+
+For exact square roots, it collapses to the exact value:
+
+```text
+square root of four equals two becomes true
 ```
 
 The trace proves the bounds by squaring the candidate fraction parts:
@@ -432,7 +442,7 @@ two over one hundred and five
 
 - No decimals.
 - No values less than zero.
-- Irrational support is currently limited to `square root of two`.
+- Square-root support searches for provable rational cages inside the current symbolic ceiling.
 - Public addition and subtraction support exact whole numbers and bounded whole-number intervals.
 - Public addition and subtraction support exact fractions and mixed numbers.
 - Random ranges only generate whole numbers.

@@ -27,7 +27,7 @@ six divided by a large number
 at most five is greater than four
 -> likely false; true for values greater than four and at most five
 
-square root of two is less than seventeen twelfths
+square root of three is less than twenty six fifteenths
 -> true
 
 an unknown number is greater than five
@@ -43,7 +43,7 @@ an unknown number is greater than five
 - Bounded values such as `at least five`, `at most twelve`, and `a large number`
 - A distinct `an unknown number` value for cases where exact scale is lost
 - Symbolic comparisons with `true`, `false`, `unknown`, exception clauses, and finite-range likelihood clauses
-- Named irrational bounds for `square root of two`
+- Named square-root bounds such as `square root of two` and `square root of three`
 - Trace mode that explains rewrite steps, bounds, true regions, and false regions
 - No ordinary numeric conversion in the arithmetic path
 
@@ -130,6 +130,9 @@ at most five is less than five
 -> likely true; false only if it is five
 
 square root of two is greater than twenty four seventeenths
+-> true
+
+square root of four equals two
 -> true
 ```
 
@@ -234,7 +237,7 @@ Field-office local Python command:
 
 - No decimals
 - No values less than zero
-- Irrational support is currently limited to `square root of two`
+- Square-root support searches for provable rational cages inside the current symbolic ceiling
 - Inputs are bounded to English cardinal phrases from `zero` through `nine hundred and ninety nine`
 - Some exact fraction comparisons can become `unknown` if symbolic cross-products overflow the supported ceiling
 - Some fraction arithmetic can become `an unknown number` if exact scale is lost after symbolic overflow

@@ -8,7 +8,7 @@ Goblet is a Python-hosted symbolic arithmetic engine for English number phrases 
 
 It currently supports addition, subtraction, division, multiplication, random range generation, and prime checks:
 It also supports symbolic comparisons that return `true`, `false`, `unknown`, or precise likelihood clauses for finite bounded ranges.
-It has one named irrational cage: `square root of two`, placed between provable rational bounds.
+It supports square-root phrases by placing irrational roots between provable rational bounds, while exact square roots collapse to exact values.
 
 ```text
 [number phrase] plus [number phrase]
@@ -24,8 +24,8 @@ prime check for [number phrase]
 [expression] equals [expression]
 [expression] is at least [expression]
 [expression] is at most [expression]
-square root of two is greater than [expression]
-square root of two is less than [expression]
+square root of [number phrase] is greater than [expression]
+square root of [number phrase] is less than [expression]
 ```
 
 It also supports random English number generation across an inclusive symbolic range:
@@ -246,6 +246,16 @@ square root of two is less than seventeen twelfths
 becomes true
 ```
 
+```text
+square root of three is greater than nineteen elevenths
+becomes true
+```
+
+```text
+square root of four equals two
+becomes true
+```
+
 Trace mode explains uncertain comparisons with operand ranges:
 
 ```text
@@ -321,7 +331,7 @@ five sixths is already reduced
 one half plus one third becomes five sixths
 ```
 
-Irrational trace mode shows the rational cage proof:
+Square-root trace mode shows the rational cage proof:
 
 ```text
 square root of two is greater than one
@@ -363,7 +373,7 @@ src/goblet/
   prime.py       symbolic trial division prime checks
   render.py      British-style number and fraction rendering
   random_range.py symbolic inclusive range expansion and random choice
-  relation.py    symbolic comparison via interval logic and named irrational bounds
+  relation.py    symbolic comparison via interval logic and square-root bounds
 ```
 
 Local runner:
@@ -460,7 +470,7 @@ seven is prime
 - Public addition and subtraction support exact fractions and mixed numbers.
 - Comparisons support exact values, exact fraction phrases, exact division expressions, and bounded division expressions.
 - Comparison trace mode shows operand ranges and the conditions that would make an unknown comparison true or false.
-- Named irrational support is currently limited to `square root of two`, caged between `twenty four seventeenths` and `seventeen twelfths`.
+- Square-root support searches for provable rational cages inside the current symbolic ceiling.
 - Fraction trace mode shows denominator sharing, numerator rewriting, and reduction.
 - Finite bounded comparison traces show true and false regions when they can be rendered cleanly.
 - Finite bounded comparisons can return `likely true` or `likely false` when symbolic midpoint comparison shows one side occupies more than half the range.
@@ -477,7 +487,7 @@ seven is prime
 - Some exact fraction comparisons may become `unknown` if symbolic cross-products overflow the supported whole-number ceiling.
 - No decimals.
 - No values less than zero.
-- No general irrational arithmetic. Division over bounded integer phrases only produces rational results.
+- No general irrational arithmetic beyond square-root cages. Division over bounded integer phrases only produces rational results.
 - Repeated subtraction, repeated addition, symbolic range expansion, and trial division prime checks are intentionally slow but acceptable at this scale.
 - Overflow past the value `nine hundred and ninety nine` is represented by the renderable sentinel `a large number`, including mixed fractional overflow.
 - Fraction wording is pragmatic, not exhaustive English grammar.

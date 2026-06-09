@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import cache
 
 from .add import add
 from .compare import compare
@@ -9,14 +10,17 @@ from .divide import (
     divide_large_lower_bound,
     parse_division_expression,
     quotient_and_remainder,
+    reduce_fraction,
 )
 from .fraction import parse_rational as parse_fraction_rational
+from .increment import increment
 from .multiply import multiply
 from .normalize import parse_number
 from .render import render_fraction, render_mixed, render_number
 from .words import LARGE_NUMBER, ONE, SymbolicNumber, WordNumber, ZERO, is_large_number, is_unknown_number
 
 TWO = WordNumber("zero", "zero", "two")
+ROOT_CANDIDATE_CEILING = WordNumber("zero", "three", "two")
 
 
 @dataclass(frozen=True)
@@ -37,6 +41,14 @@ class Interval:
     upper: Bound
     lower_open: bool = False
     upper_open: bool = False
+
+
+@dataclass(frozen=True)
+class RootBounds:
+    radicand: WordNumber
+    exact: Rational | None
+    lower: Rational | None
+    upper: Rational | None
 
 
 def relation_expression(expression: str) -> str:
@@ -112,8 +124,8 @@ def parse_relation_expression(expression: str) -> tuple[str, str, str]:
 
 
 def parse_interval(text: str) -> Interval:
-    if text == "square root of two":
-        return square_root_two_interval()
+    if text.startswith("square root of "):
+        return square_root_interval(parse_square_root_radicand(text))
     if text.startswith("at least "):
         base = parse_interval(text[len("at least ") :])
         return Interval(base.lower, infinity_bound(), lower_open=base.lower_open)
@@ -403,33 +415,33 @@ def compare_rationals(left: Rational, right: Rational) -> str:
     return compare(left_product, right_product)
 
 
-def square_root_two_interval() -> Interval:
-    return Interval(
-        finite_bound(Rational(WordNumber("zero", "two", "four"), WordNumber("zero", "one", "seven"))),
-        finite_bound(Rational(WordNumber("zero", "one", "seven"), WordNumber("zero", "one", "two"))),
-        lower_open=True,
-        upper_open=True,
-    )
-
-
 def irrational_trace_steps(text: str) -> list[str]:
-    if text != "square root of two":
+    if not text.startswith("square root of "):
         return []
-    lower = Rational(WordNumber("zero", "two", "four"), WordNumber("zero", "one", "seven"))
-    upper = Rational(WordNumber("zero", "one", "seven"), WordNumber("zero", "one", "two"))
-    steps = ["finding bounds for square root of two"]
-    steps.extend(square_root_two_bound_steps(lower, "below"))
-    steps.extend(square_root_two_bound_steps(upper, "above"))
-    steps.append(f"square root of two is {render_interval(square_root_two_interval())}")
+    radicand = parse_square_root_radicand(text)
+    bounds = find_square_root_bounds(radicand)
+    root_text = render_square_root(radicand)
+    steps = [f"finding bounds for {root_text}"]
+    if bounds.exact is not None:
+        steps.extend(square_root_bound_steps(bounds.exact, radicand, "exactly"))
+    else:
+        if bounds.lower is not None:
+            steps.extend(square_root_bound_steps(bounds.lower, radicand, "below"))
+        if bounds.upper is not None:
+            steps.extend(square_root_bound_steps(bounds.upper, radicand, "above"))
+    steps.append(f"{root_text} is {render_interval(square_root_interval(radicand))}")
     return steps
 
 
-def square_root_two_bound_steps(value: Rational, side: str) -> list[str]:
+def square_root_bound_steps(value: Rational, radicand: WordNumber, side: str) -> list[str]:
     numerator_square = multiply(value.numerator, value.numerator)
     denominator_square = multiply(value.denominator, value.denominator)
-    doubled_denominator_square = multiply(TWO, denominator_square)
-    comparison = compare(numerator_square, doubled_denominator_square)
+    scaled_denominator_square = multiply(radicand, denominator_square)
+    comparison = compare_square_products(numerator_square, scaled_denominator_square)
     relation_word = "less than" if comparison == "less" else "greater than"
+    if comparison == "equal":
+        relation_word = "equal to"
+    root_text = render_square_root(radicand)
     return [
         f"testing {render_improper_rational(value)}",
         (
@@ -441,15 +453,93 @@ def square_root_two_bound_steps(value: Rational, side: str) -> list[str]:
             f"becomes {render_number(denominator_square)}"
         ),
         (
-            f"two times {render_number(denominator_square)} "
-            f"becomes {render_number(doubled_denominator_square)}"
+            f"{render_number(radicand)} times {render_number(denominator_square)} "
+            f"becomes {render_number(scaled_denominator_square)}"
         ),
         (
             f"{render_number(numerator_square)} is {relation_word} "
-            f"{render_number(doubled_denominator_square)}"
+            f"{render_number(scaled_denominator_square)}"
         ),
-        f"{render_improper_rational(value)} is {side} square root of two",
+        f"{render_improper_rational(value)} is {side} {root_text}",
     ]
+
+
+def square_root_interval(radicand: WordNumber) -> Interval:
+    bounds = find_square_root_bounds(radicand)
+    if bounds.exact is not None:
+        return exact_interval(bounds.exact)
+    if bounds.lower is None or bounds.upper is None:
+        raise ValueError(f"cannot place {render_square_root(radicand)}")
+    return Interval(
+        finite_bound(bounds.lower),
+        finite_bound(bounds.upper),
+        lower_open=True,
+        upper_open=True,
+    )
+
+
+def parse_square_root_radicand(text: str) -> WordNumber:
+    radicand = parse_number(text[len("square root of ") :])
+    if is_unknown_number(radicand) or is_large_number(radicand):
+        raise ValueError("square root needs a finite supported number")
+    return radicand
+
+
+@cache
+def find_square_root_bounds(radicand: WordNumber) -> RootBounds:
+    lower = None
+    upper = None
+    for denominator in root_candidate_words():
+        if denominator == ZERO:
+            continue
+        for numerator in root_candidate_words():
+            reduced_numerator, reduced_denominator = reduce_fraction(numerator, denominator)
+            candidate = Rational(reduced_numerator, reduced_denominator)
+            comparison = compare_fraction_square_to_radicand(candidate, radicand)
+            if comparison == "equal":
+                return RootBounds(radicand, candidate, None, None)
+            if comparison == "less":
+                if lower is None or compare_rationals(candidate, lower) == "greater":
+                    lower = candidate
+            if comparison == "greater":
+                if upper is None or compare_rationals(candidate, upper) == "less":
+                    upper = candidate
+                break
+            if comparison == "unknown":
+                break
+    return RootBounds(radicand, None, lower, upper)
+
+
+@cache
+def compare_fraction_square_to_radicand(value: Rational, radicand: WordNumber) -> str:
+    numerator_square = multiply(value.numerator, value.numerator)
+    denominator_square = multiply(value.denominator, value.denominator)
+    scaled_denominator_square = multiply(radicand, denominator_square)
+    return compare_square_products(numerator_square, scaled_denominator_square)
+
+
+def compare_square_products(left: SymbolicNumber, right: SymbolicNumber) -> str:
+    if is_large_number(left) and is_large_number(right):
+        return "unknown"
+    if is_large_number(left):
+        return "greater"
+    if is_large_number(right):
+        return "less"
+    return compare(left, right)
+
+
+@cache
+def root_candidate_words() -> tuple[WordNumber, ...]:
+    values = []
+    current = ZERO
+    while compare(current, ROOT_CANDIDATE_CEILING) != "greater":
+        values.append(current)
+        current = increment(current)
+    return tuple(values)
+
+
+def render_square_root(radicand: WordNumber) -> str:
+    return f"square root of {render_number(radicand)}"
 
 
 def render_interval(value: Interval) -> str:

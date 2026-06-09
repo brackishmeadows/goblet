@@ -87,6 +87,10 @@ class SymbolicArithmeticTests(unittest.TestCase):
             ("square root of two equals twenty four seventeenths", "false"),
             ("square root of two equals seventeen twelfths", "false"),
             ("square root of two is greater than seventeen twelfths", "false"),
+            ("square root of three is greater than nineteen elevenths", "true"),
+            ("square root of three is less than twenty six fifteenths", "true"),
+            ("square root of three is greater than twenty six fifteenths", "false"),
+            ("square root of four equals two", "true"),
             ("an unknown number is greater than five", "unknown"),
             ("an unknown number equals an unknown number", "unknown"),
         ]
