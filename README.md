@@ -15,6 +15,9 @@ seven plus three
 twenty seven divided by five
 -> five and two fifths
 
+one half plus one third
+-> five sixths
+
 a large number divided by five
 -> at least two hundred
 
@@ -32,7 +35,8 @@ an unknown number is greater than five
 
 - Exact English-number arithmetic from `zero` through `nine hundred and ninety nine`
 - Addition, subtraction, multiplication, division, prime checks, and random range generation
-- Fractions and mixed numbers such as `five and two fifths`
+- Fraction and mixed-number rendering such as `five and two fifths`
+- Fraction addition and subtraction such as `one half plus one third`
 - Bounded values such as `at least five`, `at most twelve`, and `a large number`
 - A distinct `an unknown number` value for cases where exact scale is lost
 - Symbolic comparisons with `true`, `false`, `unknown`, exception clauses, and finite-range likelihood clauses
@@ -91,6 +95,22 @@ at most five plus three
 
 at most five minus three
 -> at most two when the left value is at least three
+```
+
+Fraction arithmetic:
+
+```text
+one half plus one third
+-> five sixths
+
+two thirds minus one third
+-> one third
+
+five and two fifths plus one third
+-> five and eleven fifteenths
+
+one over nine hundred and ninety nine plus one over nine hundred and ninety eight
+-> an unknown number
 ```
 
 Symbolic comparisons:
@@ -162,6 +182,7 @@ Field-office local Python command:
 - No irrational numbers
 - Inputs are bounded to English cardinal phrases from `zero` through `nine hundred and ninety nine`
 - Some exact fraction comparisons can become `unknown` if symbolic cross-products overflow the supported ceiling
+- Some fraction arithmetic can become `an unknown number` if exact scale is lost after symbolic overflow
 - Fractions with `a large number` as a bound denominator are not reduced yet
 - `an unknown number` means exact scale was lost; it is not the same as `a large number`
 

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from .add import add
 from .compare import compare
+from .fraction import add_rationals, parse_rational, render_rational, subtract_rationals
 from .normalize import parse_number
 from .render import render_number
 from .subtract import subtract
@@ -19,6 +20,14 @@ class WholeInterval:
 
 def arithmetic_expression(expression: str) -> str:
     left_text, operator, right_text = parse_arithmetic_expression(expression)
+    if not is_bounded_text(left_text) and not is_bounded_text(right_text):
+        left_rational = parse_rational(left_text)
+        right_rational = parse_rational(right_text)
+        if operator == "plus":
+            return render_rational(add_rationals(left_rational, right_rational))
+        if operator == "minus":
+            return render_rational(subtract_rationals(left_rational, right_rational))
+
     left = parse_whole_interval(left_text)
     right = parse_whole_interval(right_text)
     if operator == "plus":
@@ -35,6 +44,10 @@ def parse_arithmetic_expression(expression: str) -> tuple[str, str, str]:
             left, right = lowered.split(marker, 1)
             return left.strip(), operator, right.strip()
     raise ValueError("expected addition or subtraction expression")
+
+
+def is_bounded_text(text: str) -> bool:
+    return text.startswith("at least ") or text.startswith("at most ")
 
 
 def parse_whole_interval(text: str) -> WholeInterval:

@@ -203,8 +203,6 @@ Keep the shed. Visit it. Do not let it move into the bedroom.
 
 ## Next Honest Moves
 
-- Add fraction addition and subtraction while preserving exact structure where possible.
-- Use `an unknown number` when fraction overflow loses scale.
 - Add trace output that explains why exact fraction placement was lost.
 - Add a cheat-detector test for forbidden arithmetic shortcuts.
 - Try one non-arithmetic controlled-English rule domain as a separate experiment.

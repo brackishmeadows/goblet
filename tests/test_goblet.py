@@ -159,6 +159,15 @@ class SymbolicArithmeticTests(unittest.TestCase):
             ("seven plus three", "ten"),
             ("seven minus three", "four"),
             ("nine hundred and ninety nine plus one", "a large number"),
+            ("one half plus one third", "five sixths"),
+            ("one half plus one half", "one"),
+            ("two thirds minus one third", "one third"),
+            ("one and one half plus two thirds", "two and one sixth"),
+            ("five and two fifths plus one third", "five and eleven fifteenths"),
+            (
+                "one over nine hundred and ninety nine plus one over nine hundred and ninety eight",
+                "an unknown number",
+            ),
             ("at most five plus three", "at least three and at most eight"),
             ("at least five plus three", "at least eight"),
             ("at most five plus at most three", "at most eight"),
@@ -176,6 +185,9 @@ class SymbolicArithmeticTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "subtraction would be less than zero"):
             arithmetic_expression("at most two minus five")
+
+        with self.assertRaisesRegex(ValueError, "subtraction would be less than zero"):
+            arithmetic_expression("one third minus one half")
 
         with self.assertRaisesRegex(ValueError, "cannot subtract an unbounded symbolic value"):
             arithmetic_expression("five minus at least three")

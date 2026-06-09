@@ -140,6 +140,22 @@ at most five minus at most three becomes at most five when the left value is at 
 
 Subtraction cannot be less than zero. If every possible result would be less than zero, it returns an error.
 
+Fraction addition and subtraction are also supported:
+
+```text
+one half plus one third becomes five sixths
+one half plus one half becomes one
+two thirds minus one third becomes one third
+one and one half plus two thirds becomes two and one sixth
+five and two fifths plus one third becomes five and eleven fifteenths
+```
+
+If exact fraction scale is lost after symbolic overflow, the result becomes:
+
+```text
+an unknown number
+```
+
 ## Symbolic Comparisons
 
 Comparison commands return:
@@ -348,6 +364,7 @@ two over one hundred and five
 - No values less than zero.
 - No irrational numbers.
 - Public addition and subtraction support exact whole numbers and bounded whole-number intervals.
+- Public addition and subtraction support exact fractions and mixed numbers.
 - Random ranges only generate whole numbers.
 - Random ranges accept `at least` on the lower endpoint and `at most` on the upper endpoint.
 - Division uses `at least` and `at most` as output-only bound language.
@@ -357,6 +374,7 @@ two over one hundred and five
 - Finite bounded comparisons can return `likely true` or `likely false` when symbolic midpoint comparison shows one side occupies more than half the range.
 - Fractions with `a large number` as a bound denominator are not reduced yet.
 - `an unknown number` means exact scale was lost; it is not the same as `a large number`.
+- Fraction arithmetic may return `an unknown number` when cross-products overflow and the resulting ratio cannot be placed.
 - Some exact fraction comparisons may become `unknown` if symbolic cross-products overflow the supported whole-number ceiling.
 - Prime checking uses slow symbolic trial division.
 - Arithmetic inputs are bounded to `zero` through `nine hundred and ninety nine`.

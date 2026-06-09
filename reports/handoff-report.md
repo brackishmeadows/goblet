@@ -12,6 +12,8 @@ It also supports symbolic comparisons that return `true`, `false`, `unknown`, or
 ```text
 [number phrase] plus [number phrase]
 [number phrase] minus [number phrase]
+[fraction phrase] plus [fraction phrase]
+[fraction phrase] minus [fraction phrase]
 [number phrase] divided by [number phrase]
 [number phrase] times [number phrase]
 [number phrase] multiplied by [number phrase]
@@ -175,6 +177,21 @@ becomes at most two when the left value is at least three
 ```
 
 ```text
+one half plus one third
+becomes five sixths
+```
+
+```text
+five and two fifths plus one third
+becomes five and eleven fifteenths
+```
+
+```text
+one over nine hundred and ninety nine plus one over nine hundred and ninety eight
+becomes an unknown number
+```
+
+```text
 a large number divided by six
 becomes at least one hundred and sixty six and two thirds
 ```
@@ -285,6 +302,7 @@ src/goblet/
   add.py          symbolic addition by repeated successor
   subtract.py    symbolic subtraction with borrowing
   arithmetic.py   public addition/subtraction and bounded interval arithmetic
+  fraction.py     exact rational parsing, addition, subtraction, and overflow fallback
   divide.py      repeated subtraction division and symbolic fraction reduction
   multiply.py    repeated symbolic addition multiplication
   prime.py       symbolic trial division prime checks
@@ -384,6 +402,7 @@ seven is prime
 
 - Addition, subtraction, division, multiplication, random range generation, prime checking, and symbolic comparison only.
 - Public addition and subtraction support exact whole numbers and bounded whole-number intervals.
+- Public addition and subtraction support exact fractions and mixed numbers.
 - Comparisons support exact values, exact division expressions, and bounded division expressions.
 - Comparison trace mode shows operand ranges and the conditions that would make an unknown comparison true or false.
 - Finite bounded comparison traces show true and false regions when they can be rendered cleanly.
@@ -397,6 +416,7 @@ seven is prime
 - `at least a large number` has no supported finite random values.
 - Fractions with `a large number` as a bound denominator are not reduced yet.
 - `an unknown number` means exact scale was lost; it is not the same as `a large number`.
+- Fraction arithmetic may return `an unknown number` when cross-products overflow and the resulting ratio cannot be placed.
 - Some exact fraction comparisons may become `unknown` if symbolic cross-products overflow the supported whole-number ceiling.
 - No decimals.
 - No values less than zero.
