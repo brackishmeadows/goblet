@@ -8,6 +8,16 @@ It does not convert phrases into normal numeric primitives for arithmetic. It pa
 
 The broader idea is [bounded legible reasoning](docs/bounded-legible-reasoning.md): small deterministic systems that preserve uncertainty in human-readable language.
 
+## Play Liar's Labyrinth
+
+[Open the browser prototype](web/) or read the [Liar's Labyrinth systems notes](docs/liars-labyrinth.md).
+
+Liar's Labyrinth is a command-first social hazard crawler built on Goblet's
+symbolic reasoning. You question liars, compare testimony, ask miniature
+honest/liar puzzles, track memory and trust, and try to survive rooms where
+agents can mislead each other, fall asleep, follow goals, or push someone
+through the wrong door.
+
 ## What It Can Say
 
 ```text
