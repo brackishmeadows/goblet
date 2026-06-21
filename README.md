@@ -1,13 +1,3 @@
-### Play Liar's Labyrinth
-
-[Open the browser prototype](https://brackishmeadows.github.io/goblet/web/) or read the [Liar's Labyrinth systems notes](docs/liars-labyrinth.md).
-
-Liar's Labyrinth is a command-first social hazard crawler built on Goblet's
-symbolic reasoning. You question liars, compare testimony, ask miniature
-honest/liar puzzles, track memory and trust, and try to survive rooms where
-agents can mislead each other, fall asleep, follow goals, or push someone
-through the wrong door.
-
 # Goblet
 
 ![A golden goblet with blue ornamentation](e5684fdf-7f5f-4979-87e2-92f95fbded75.png)
@@ -60,8 +50,18 @@ an unknown number is greater than five
 - Classic honest/liar puzzle solving with possible-world traces
 - Liar's Labyrinth: a command-first social hazard crawler using Goblet questions, liar puzzles, testimony, recall, trust, and agent goals
 - No ordinary numeric conversion in the arithmetic path
+  
+### Play Liar's Labyrinth
 
-## Install
+[Open the browser prototype](https://brackishmeadows.github.io/goblet/) or read the [Liar's Labyrinth systems notes](docs/liars-labyrinth.md).
+
+Liar's Labyrinth is a command-first social hazard crawler built on Goblet's
+symbolic reasoning. You question liars, compare testimony, ask miniature
+honest/liar puzzles, track memory and trust, and try to survive rooms where
+agents can mislead each other, fall asleep, follow goals, or push someone
+through the wrong door.
+
+## Install Goblet
 
 From this directory:
 
