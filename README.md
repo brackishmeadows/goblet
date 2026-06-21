@@ -1,3 +1,13 @@
+### Play Liar's Labyrinth
+
+[Open the browser prototype](web/) or read the [Liar's Labyrinth systems notes](docs/liars-labyrinth.md).
+
+Liar's Labyrinth is a command-first social hazard crawler built on Goblet's
+symbolic reasoning. You question liars, compare testimony, ask miniature
+honest/liar puzzles, track memory and trust, and try to survive rooms where
+agents can mislead each other, fall asleep, follow goals, or push someone
+through the wrong door.
+
 # Goblet
 
 ![A golden goblet with blue ornamentation](e5684fdf-7f5f-4979-87e2-92f95fbded75.png)
@@ -7,16 +17,6 @@ A tiny symbolic arithmetic engine for English number phrases.
 It does not convert phrases into normal numeric primitives for arithmetic. It parses constrained English into symbolic slots, then works through successor, predecessor, borrowing, repeated addition, repeated subtraction, fraction reduction, interval bounds, and traceable comparisons.
 
 The broader idea is [bounded legible reasoning](docs/bounded-legible-reasoning.md): small deterministic systems that preserve uncertainty in human-readable language.
-
-## Play Liar's Labyrinth
-
-[Open the browser prototype](web/) or read the [Liar's Labyrinth systems notes](docs/liars-labyrinth.md).
-
-Liar's Labyrinth is a command-first social hazard crawler built on Goblet's
-symbolic reasoning. You question liars, compare testimony, ask miniature
-honest/liar puzzles, track memory and trust, and try to survive rooms where
-agents can mislead each other, fall asleep, follow goals, or push someone
-through the wrong door.
 
 ## What It Can Say
 
