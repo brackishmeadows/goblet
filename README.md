@@ -1,6 +1,6 @@
 ### Play Liar's Labyrinth
 
-[Open the browser prototype]([https://brackishmeadows.github.io/goblet/web/]) or read the [Liar's Labyrinth systems notes](docs/liars-labyrinth.md).
+[Open the browser prototype](https://brackishmeadows.github.io/goblet/web/) or read the [Liar's Labyrinth systems notes](docs/liars-labyrinth.md).
 
 Liar's Labyrinth is a command-first social hazard crawler built on Goblet's
 symbolic reasoning. You question liars, compare testimony, ask miniature
