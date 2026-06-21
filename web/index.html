@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Liar's Labyrinth</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <h1>Liar's Labyrinth</h1>
+        <div class="status" id="status">loading python...</div>
+      </header>
+
+      <section class="controls" aria-label="Game controls">
+        <label class="seed-label">
+          seed
+          <input id="seedInput" type="text" autocomplete="off" spellcheck="false" placeholder="optional">
+        </label>
+        <button id="newGameButton" type="button">New game</button>
+        <button id="continueButton" type="button">Continue</button>
+        <button id="resetButton" type="button">Reset</button>
+      </section>
+
+      <pre id="transcript" class="transcript" aria-live="polite"></pre>
+
+      <form id="commandForm" class="command-row">
+        <input id="commandInput" type="text" autocomplete="off" spellcheck="false" placeholder="type a command">
+        <button id="submitButton" type="submit">Submit</button>
+      </form>
+
+      <section class="quickbar" aria-label="Quick commands">
+        <button data-command="help" type="button">Help</button>
+        <button data-command="look" type="button">Look</button>
+        <button id="copyButton" type="button">Copy transcript</button>
+        <button id="downloadButton" type="button">Export transcript</button>
+      </section>
+    </main>
+    <script src="app.js"></script>
+  </body>
+</html>

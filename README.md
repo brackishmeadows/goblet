@@ -232,10 +232,24 @@ Field-office local Python command:
 & ..\tools\python-3.13.13-embed-amd64\python.exe -m unittest discover -s tests
 ```
 
+## Browser Prototype
+
+The static browser prototype lives in [web/](web/). Serve the repository root
+with a static server, then open `http://localhost:8000/web/`.
+
+The same session layer is available from the CLI:
+
+```powershell
+python run.py --labyrinth-post state.goblet start optional-seed
+python run.py --labyrinth-post state.goblet help
+```
+
 ## Documentation
 
 - [Manual](MANUAL.md): command syntax and examples
 - [PRD](PRD.md): original product requirements and constraints
+- [Browser PRD](docs/browser_prd.md): static Pyodide prototype plan
+- [Web Prototype README](web/README.md): local browser run notes
 - [Bounded Legible Reasoning](docs/bounded-legible-reasoning.md): broader design note
 - [Witness Machine Interop Note](docs/witness-machine-interop-note.md): research note on possible Hat/Goblet synthesis
 - [Handoff Report](reports/handoff-report.md): implementation state and known limits

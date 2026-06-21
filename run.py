@@ -6,7 +6,13 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent / "src"))
 
 from goblet.divide import divide_expression, trace_divide_expression
 from goblet.arithmetic import arithmetic_expression, trace_arithmetic_expression
-from goblet.labyrinth import run_labyrinth_interactive, run_labyrinth_script
+from goblet.labyrinth import (
+    run_labyrinth_interactive,
+    run_labyrinth_script,
+    show_labyrinth_post,
+    start_labyrinth_post,
+    step_labyrinth_post,
+)
 from goblet.liars import liars_expression, trace_liars_expression
 from goblet.multiply import multiply_expression, trace_multiply_expression
 from goblet.prime import prime_expression, trace_prime_expression
@@ -24,6 +30,9 @@ def main() -> int:
         print("       python run.py --labyrinth-play")
         print("       python run.py --labyrinth-random script.txt [seed]")
         print("       python run.py --labyrinth-random-play [seed]")
+        print("       python run.py --labyrinth-post state.goblet start [seed]")
+        print("       python run.py --labyrinth-post state.goblet show")
+        print("       python run.py --labyrinth-post state.goblet COMMAND...")
         return 2
 
     args = sys.argv[1:]
@@ -100,6 +109,45 @@ def main() -> int:
         run_labyrinth_interactive(random_seed=seed)
         return 0
 
+    if args and args[0] == "--labyrinth-post":
+        if len(args) < 3:
+            print("usage: python run.py --labyrinth-post state.goblet start [seed]")
+            print("       python run.py --labyrinth-post state.goblet show")
+            print("       python run.py --labyrinth-post state.goblet COMMAND...")
+            return 2
+        state_path = args[1]
+        action = args[2]
+        try:
+            if action == "start":
+                if len(args) > 4:
+                    print("usage: python run.py --labyrinth-post state.goblet start [seed]")
+                    return 2
+                seed = args[3] if len(args) == 4 else None
+                print("\n".join(start_labyrinth_post(state_path, seed)))
+                return 0
+            if action == "reset":
+                if len(args) > 4:
+                    print("usage: python run.py --labyrinth-post state.goblet reset [seed]")
+                    return 2
+                seed = args[3] if len(args) == 4 else None
+                print("\n".join(start_labyrinth_post(state_path, seed)))
+                return 0
+            if action == "show":
+                if len(args) != 3:
+                    print("usage: python run.py --labyrinth-post state.goblet show")
+                    return 2
+                print("\n".join(show_labyrinth_post(state_path)))
+                return 0
+            command = " ".join(args[2:])
+            print("\n".join(step_labyrinth_post(state_path, command)))
+            return 0
+        except OSError as exc:
+            print(f"error: {exc}")
+            return 1
+        except ValueError as exc:
+            print(f"error: {exc}")
+            return 1
+
     if args and args[0] == "--prime":
         if len(args) < 2:
             print('usage: python run.py [--trace] --prime "seven"')
@@ -124,6 +172,9 @@ def main() -> int:
         print("       python run.py --labyrinth-play")
         print("       python run.py --labyrinth-random script.txt [seed]")
         print("       python run.py --labyrinth-random-play [seed]")
+        print("       python run.py --labyrinth-post state.goblet start [seed]")
+        print("       python run.py --labyrinth-post state.goblet show")
+        print("       python run.py --labyrinth-post state.goblet COMMAND...")
         return 2
 
     expression = " ".join(args)
