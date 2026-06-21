@@ -47,6 +47,8 @@ an unknown number is greater than five
 - Symbolic comparisons with `true`, `false`, `unknown`, exception clauses, and finite-range likelihood clauses
 - Named root bounds such as `square root of two`, `cube root of two`, and `fourth root of two`
 - Trace mode that explains rewrite steps, bounds, true regions, and false regions
+- Classic honest/liar puzzle solving with possible-world traces
+- Liar's Labyrinth: a command-first social hazard crawler using Goblet questions, liar puzzles, testimony, recall, trust, and agent goals
 - No ordinary numeric conversion in the arithmetic path
 
 ## Install
@@ -222,6 +224,19 @@ Prime check:
 python run.py --prime "seven"
 ```
 
+Classic liars puzzle:
+
+```powershell
+python run.py --liars examples/aster-bram.goblet-liars
+```
+
+Liar's Labyrinth:
+
+```powershell
+python run.py --labyrinth examples/liars-labyrinth-demo.txt
+python run.py --labyrinth-play
+```
+
 ## Tests
 
 ```powershell
@@ -254,6 +269,8 @@ python run.py --labyrinth-post state.goblet help
 - [Manual](MANUAL.md): command syntax and examples
 - [PRD](PRD.md): original product requirements and constraints
 - [Browser PRD](docs/browser_prd.md): static Pyodide prototype plan
+- [Classic Liars Puzzles](docs/liars.md): file format, solver behavior, and trace mode
+- [Liar's Labyrinth](docs/liars-labyrinth.md): game systems, commands, and current prototype state
 - [Web Prototype README](web/README.md): local browser run notes
 - [Bounded Legible Reasoning](docs/bounded-legible-reasoning.md): broader design note
 - [Witness Machine Interop Note](docs/witness-machine-interop-note.md): research note on possible Hat/Goblet synthesis

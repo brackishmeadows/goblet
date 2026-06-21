@@ -44,6 +44,108 @@ From the repository root:
 & ..\tools\python-3.13.13-embed-amd64\python.exe run.py "seven times six"
 ```
 
+## Classic Liars Puzzles
+
+Run a `.goblet-liars` puzzle file:
+
+```powershell
+& ..\tools\python-3.13.13-embed-amd64\python.exe run.py --liars examples\aster-bram.goblet-liars
+```
+
+Trace rejected worlds:
+
+```powershell
+& ..\tools\python-3.13.13-embed-amd64\python.exe run.py --trace --liars examples\aster-bram.goblet-liars
+```
+
+Puzzle files use:
+
+```text
+people:
+  Aster
+  Bram
+
+statements:
+  Aster calls Bram a liar
+  Bram calls Aster a liar
+```
+
+Supported statements are `NAME calls NAME honest` and `NAME calls NAME a liar`.
+The solver reports `contradiction`, `forced`, or `ambiguous`, with possible
+worlds listed when any survive. See [Classic Liars Puzzles](docs/liars.md).
+
+## Liar's Labyrinth
+
+Run the scripted demo:
+
+```powershell
+& ..\tools\python-3.13.13-embed-amd64\python.exe run.py --labyrinth examples\liars-labyrinth-demo.txt
+```
+
+Run interactive mode:
+
+```powershell
+& ..\tools\python-3.13.13-embed-amd64\python.exe run.py --labyrinth-play
+```
+
+Run the browser/play-by-post session layer from the CLI:
+
+```powershell
+& ..\tools\python-3.13.13-embed-amd64\python.exe run.py --labyrinth-post state.goblet start optional-seed
+& ..\tools\python-3.13.13-embed-amd64\python.exe run.py --labyrinth-post state.goblet help
+```
+
+Run a seeded random labyrinth script:
+
+```powershell
+& ..\tools\python-3.13.13-embed-amd64\python.exe run.py --labyrinth-random examples\liars-labyrinth-demo.txt salt
+```
+
+Run an interactive seeded random labyrinth:
+
+```powershell
+& ..\tools\python-3.13.13-embed-amd64\python.exe run.py --labyrinth-random-play salt
+```
+
+Main commands:
+
+```text
+actions / help
+help TOPIC
+look
+look NAME
+ask NAME about THING
+ask NAME if/whether CLAIM
+ask NAME what GOBLET_EXPRESSION is
+ask NAME if GOBLET_EXPRESSION
+ask NAME liars: NAME calls NAME a liar; NAME calls NAME honest
+ask NAME to assess THING
+tell NAME CLAIM
+tell NAME [to] ACTION
+sip CUP / drink CUP
+move DOOR / go DOOR
+push NAME through DOOR
+slap NAME
+recall THING / remember THING
+quit / exit
+```
+
+`look`, `help`, `actions`, and `recall` do not advance the round. Most other
+commands spend a player action. Moving to a new room can immediately show the
+new room.
+
+Agents can be people, travellers, or fixed witnesses. Travellers can act.
+Fixed witnesses can answer, lie, remember, hear claims, and sleep after too many
+questions, but they cannot move or carry out instructions.
+
+Sleeping agents can still be targeted by player commands. Asking one a question
+prints that they are sleeping and suggests slapping them awake if needed. The
+autonomous agent planner treats sleeping ask-targets as poor targets: existing
+ask plans against sleepers are skipped or replaced, and witness selection favors
+awake agents.
+
+See [Liar's Labyrinth](docs/liars-labyrinth.md) for systems notes.
+
 ## Number Style
 
 Input accepts optional `and`:

@@ -4,7 +4,9 @@ Status: game design note
 
 ## Current Prototype
 
-A small scripted terminal prototype exists.
+Liar's Labyrinth is now both a terminal prototype and a static browser
+prototype. The browser shell uses Pyodide and the same Python game logic; it is
+not a separate JavaScript rewrite.
 
 Run scripted demo:
 
@@ -18,21 +20,48 @@ Run interactive mode:
 & ..\tools\python-3.13.13-embed-amd64\python.exe run.py --labyrinth-play
 ```
 
+Run a seeded random script:
+
+```powershell
+& ..\tools\python-3.13.13-embed-amd64\python.exe run.py --labyrinth-random examples\liars-labyrinth-demo.txt salt
+```
+
+Run play-by-post/session mode:
+
+```powershell
+& ..\tools\python-3.13.13-embed-amd64\python.exe run.py --labyrinth-post state.goblet start salt
+& ..\tools\python-3.13.13-embed-amd64\python.exe run.py --labyrinth-post state.goblet help
+& ..\tools\python-3.13.13-embed-amd64\python.exe run.py --labyrinth-post state.goblet show
+```
+
+Run the local browser prototype:
+
+```powershell
+& ..\tools\python-3.13.13-embed-amd64\python.exe -m http.server 8000
+```
+
+Then open:
+
+```text
+http://localhost:8000/web/
+```
+
 Double-click launcher:
 
 ```text
 examples\play-liars-labyrinth.bat
 ```
 
-Current prototype limits:
+Current prototype state:
 
 - three fixed rooms
+- seeded random labyrinth generation
 - deterministic claimant intentions
 - rounds contain per-agent turns
 - every mobile agent starts with one turn per round
 - speed controls turns per round
-- no real belief update yet
-- observances are logged as events, not reasoned over
+- belief, trust, hypothesis, and goal updates exist but are still prototype-grade
+- observances are logged as events and can feed simple trust/hypothesis updates
 - cup effects resolve immediately
 - slap cancels one claimant action
 - peril doors kill rather than damage
@@ -42,8 +71,18 @@ Current prototype limits:
 - claimant hit points are hidden behind condition words
 - present claimants produce fresh claims each round
 - agents remember actions they tried and may refuse to repeat failed ones
+- agents avoid choosing sleeping witnesses for their own questions when another plan is available
+- fixed witnesses may sleep after repeated questioning
+- play-by-post/browser sessions persist state through an opaque prototype save
 - observances belong to individual agents
 - moving to the next room ends the current turn's old-room resolution
+
+Known prototype limits:
+
+- saves are pickle/base64 prototype data, not a public save format
+- random generation is useful but not deeply curated yet
+- social reasoning is legible but still blunt
+- the browser UI is a command shell, not a graphical room view
 
 ## Premise
 
@@ -65,7 +104,7 @@ you can influence belief, but not control minds
 
 ## Player Verbs
 
-Keep the first playable version to five verbs.
+The original core loop is built around five pressure verbs. The prototype now also includes support commands for looking, help, recall, movement aliases, and session control.
 
 ```text
 ask
@@ -73,6 +112,16 @@ tell
 sip
 move
 slap
+```
+
+The current prototype also has support verbs:
+
+```text
+look
+help/actions
+recall/remember
+push
+quit/exit
 ```
 
 ### Ask
@@ -89,6 +138,29 @@ ask Vey about the iron cup
 
 An answer is not guaranteed to be true. It is an event that can later become evidence.
 
+If the target is sleeping, the command is allowed but does not produce an
+answer. The player is told the target is sleeping and can choose whether to slap
+them awake, wait, or do something else.
+
+Current question shapes:
+
+```text
+ask Aster about the brass door
+ask Aster if the bone cup is poison
+ask Aster whether the iron door leads onward
+ask Aster what twenty seven divided by five is
+ask Aster if seven is prime
+ask Aster liars: Ash calls Bex a liar; Bex calls Ash honest
+ask Aster to assess the bone cup
+```
+
+The last four are special:
+
+- `what` and numeric `if/whether` questions call Goblet's symbolic engine.
+- `liars:` asks a classic honest/liar mini-puzzle.
+- `assess` asks the target to weigh testimony, memory, trust, and body evidence.
+- The target can still lie about any answer.
+
 ### Tell
 
 Tell an agent a claim.
@@ -102,6 +174,17 @@ tell Aster Bram is a liar
 ```
 
 The told agent may believe, doubt, ignore, repeat, or act on it.
+
+Tell can also give an instruction:
+
+```text
+tell Bram to drink the glass cup
+tell Aster go iron
+tell Vey ask Bram about the bone cup
+```
+
+Agents may consider instructions, but they are not command handles. Fixed
+witnesses cannot act on movement, sip, or ask instructions.
 
 ### Sip
 
@@ -143,6 +226,42 @@ slap Bram
 The slap is crude, reliable, and socially costly.
 
 It should be funny, but not free. Slapped claimants may lose trust, hide intentions, rush actions, or later refuse help.
+
+Slap can also wake a sleeping agent. Travellers wake easily. Fixed witnesses may
+need more than one slap if their sleep is deep. Yes, this is rude. The game
+notices.
+
+### Push
+
+Push forces another present agent toward a visible door.
+
+Examples:
+
+```text
+push Aster through the iron door
+push Aster iron
+```
+
+Healthy agents usually resist. Sleeping or badly hurt agents resist poorly.
+Witnesses remember push attempts as coercive.
+
+### Look, Help, Recall
+
+These are non-advancing support commands:
+
+```text
+look
+look Aster
+help
+help ask
+help the bone cup
+recall the iron door
+remember Bram
+```
+
+`look` repeats the room or inspects an agent. `help` exposes command and concept
+pages based on the current room. `recall` searches the player's remembered
+actions, claims, outcomes, hearsay, and inferences about a topic.
 
 ## Round Structure
 
@@ -189,9 +308,9 @@ intended action
 
 ### Hit Points
 
-Agents have three hit points.
+Agents use four health quarters, hidden behind condition words.
 
-At zero hit points, an agent is dead, incapacitated, or lost to the maze. The exact fiction can vary by room, but the state is out of play.
+At zero health, an agent is dead, incapacitated, or lost to the maze. The exact fiction can vary by room, but the state is out of play.
 
 ### Speed
 
@@ -204,6 +323,73 @@ speed: 1
 ```
 
 A speed of 2 means the agent takes two turns in that round. Haste effects may increase speed. Stupor effects may later reduce it.
+
+### Sleep
+
+Sleeping agents miss their chance to act until they wake. They can still be
+targeted by player commands, but questions aimed at them do not get useful
+answers while they are asleep.
+
+Autonomous agents notice enough to avoid wasting most question plans on sleeping
+targets. A default or generated `ask` plan against a sleeping target is treated
+as unavailable, and witness selection filters sleepers out before choosing who
+to ask. This is not a hard world rule: the player can still try it, and future
+systems may let confused or desperate agents make bad calls on purpose. The
+default behavior should not spam the log with doomed questions.
+
+Fixed witnesses can also fall asleep after too many questions. This prevents one
+stationary oracle from becoming an infinite safe interrogation machine. Tiny
+design mercy, delivered with a stick.
+
+### Memory, Recall, And Trust
+
+Agents maintain individual memory entries. Memory tracks:
+
+- actions seen directly
+- outcomes seen directly
+- claims made
+- claims heard from others
+- reported claims
+- inferences
+- trust judgements tied to evidence
+
+`recall THING` shows the player's memory from or about a subject. Agents use
+their own memory to form hypotheses, test claims, follow safe crossings, avoid
+known hazards, and update trust in witnesses.
+
+Trust is scoped. A witness can become trusted or distrusted about a particular
+topic without becoming globally good or bad forever. That keeps the system from
+collapsing into one big reputation number wearing a fake moustache.
+
+### Assessment
+
+Assessment is a social summary query:
+
+```text
+ask Bram to assess the wax cup
+ask Vey assess the silver door
+ask Aster assess witnesses
+ask Bram assess the wax cup is poison
+```
+
+The assessor weighs direct evidence, memory, hearsay, and source trust. Body
+evidence beats gossip, but gossip still matters when direct evidence is missing.
+The answer can be distorted by the assessor's lie profile.
+
+Assessment is not omniscience. It is a visible way to ask, "what does this pile
+of testimony currently imply?"
+
+### Classic Liars Interop
+
+Classic honest/liar puzzles can be asked inside the labyrinth:
+
+```text
+ask Aster liars: Ash calls Bex a liar; Bex calls Ash honest
+```
+
+This calls the standalone classic solver described in `docs/liars.md`. The
+classic puzzle assumes each named person is honest or a liar inside that puzzle.
+The labyrinth agent answering can still lie about the result.
 
 ### Truth Rate
 
