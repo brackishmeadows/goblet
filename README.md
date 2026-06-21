@@ -1,5 +1,7 @@
 # Goblet
 
+![A golden goblet with blue ornamentation](e5684fdf-7f5f-4979-87e2-92f95fbded75.png)
+
 A tiny symbolic arithmetic engine for English number phrases.
 
 It does not convert phrases into normal numeric primitives for arithmetic. It parses constrained English into symbolic slots, then works through successor, predecessor, borrowing, repeated addition, repeated subtraction, fraction reduction, interval bounds, and traceable comparisons.
