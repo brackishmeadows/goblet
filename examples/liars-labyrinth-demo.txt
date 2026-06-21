@@ -1,0 +1,14 @@
+# stop Aster once, then let the maze teach you why it matters
+slap Aster
+
+# take the haste cup; Aster is not stopped this time
+sip the glass cup
+move through the iron door
+
+# the iron rook is waiting in the second room; the others act elsewhere
+ask IronRook about the wax cup
+move through the silver door
+
+# the glass crow is waiting in the third room; leave by the exit
+ask GlassCrow about the salt cup
+move through the glass door

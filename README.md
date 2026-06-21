@@ -237,6 +237,7 @@ Field-office local Python command:
 - [Manual](MANUAL.md): command syntax and examples
 - [PRD](PRD.md): original product requirements and constraints
 - [Bounded Legible Reasoning](docs/bounded-legible-reasoning.md): broader design note
+- [Witness Machine Interop Note](docs/witness-machine-interop-note.md): research note on possible Hat/Goblet synthesis
 - [Handoff Report](reports/handoff-report.md): implementation state and known limits
 
 ## Current Limits
