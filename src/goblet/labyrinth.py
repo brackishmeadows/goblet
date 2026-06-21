@@ -5592,7 +5592,7 @@ def first_available_follow_goal(state: LabyrinthState, agent: Agent) -> str | No
 def goal_action_is_available(state: LabyrinthState, agent: Agent, action: str) -> bool:
     if action.startswith("ask "):
         parsed = parse_ask_command_for_agent(state, agent, action)
-        return not isinstance(parsed, str)
+        return not isinstance(parsed, str) and not parsed[0].sleeping
     if action.startswith("sip "):
         cup_name = action.removeprefix("sip ").strip()
         cup, _ = resolve_cup_name(state, agent, cup_name)
@@ -5610,6 +5610,9 @@ def goal_action_is_available(state: LabyrinthState, agent: Agent, action: str) -
 
 
 def action_is_reasonable_for_agent(state: LabyrinthState, agent: Agent, action: str) -> bool:
+    if action.startswith("ask "):
+        parsed = parse_ask_command_for_agent(state, agent, action)
+        return not isinstance(parsed, str) and not parsed[0].sleeping
     if action.startswith("sip "):
         cup_name = action.removeprefix("sip ").strip()
         cup, _ = resolve_cup_name(state, agent, cup_name)
@@ -5906,7 +5909,11 @@ def test_action_for_hypothesis(
 
 
 def choose_witness_for_subject(state: LabyrinthState, observer: Agent, subject: str, source: str | None) -> Agent | None:
-    present = [agent for agent in present_agents(state) if agent.name not in {observer.name, source}]
+    present = [
+        agent
+        for agent in present_agents(state)
+        if agent.name not in {observer.name, source} and not agent.sleeping
+    ]
     if not present:
         return None
     # Prefer stationary creatures as oracles, then truthier-looking agents.

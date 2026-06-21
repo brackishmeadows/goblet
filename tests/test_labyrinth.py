@@ -4,7 +4,16 @@ import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
-from goblet.labyrinth import Agent, TWO, render_agent_verb, run_labyrinth_interactive, run_labyrinth_script
+from goblet.labyrinth import (
+    Agent,
+    TWO,
+    current_agent_intention,
+    new_labyrinth,
+    render_agent_verb,
+    resolve_sip,
+    run_labyrinth_interactive,
+    run_labyrinth_script,
+)
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
@@ -267,6 +276,23 @@ class LabyrinthTests(unittest.TestCase):
         self.assertIn("you sleep through the round", output)
         self.assertNotIn("Bram asks Vey about the wax cup", output)
         self.assertNotIn("Vey said: Vey claims they are testing whether the wax cup is poison.", output)
+
+    def test_agents_do_not_choose_sleeping_witnesses_for_questions(self):
+        state = new_labyrinth()
+        aster = state.claimants["Aster"]
+        bram = state.claimants["Bram"]
+        vey = state.claimants["Vey"]
+
+        resolve_sip(state, bram, "GlassCup")
+        bram.sleeping = True
+        state.rooms[0].intentions[aster.name] = "ask Bram about BoneCup"
+
+        intention = current_agent_intention(state, aster)
+
+        self.assertNotEqual("ask Bram about BoneCup", intention)
+        self.assertIsNotNone(intention)
+        self.assertTrue(bram.sleeping)
+        self.assertFalse(vey.sleeping)
 
     def test_claimants_can_be_elsewhere_and_animals_stay_put(self):
         output = "\n".join(run_labyrinth_script(["slap Aster", "move through the iron door", "tell IronRook hello"]))
