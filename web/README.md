@@ -16,6 +16,12 @@ Then open:
 http://localhost:8000/web/
 ```
 
+On GitHub Pages, the expected published URL is:
+
+```text
+https://brackishmeadows.github.io/goblet/
+```
+
 The page stores its opaque local save and transcript in `localStorage` under:
 
 ```text

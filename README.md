@@ -239,6 +239,9 @@ Field-office local Python command:
 The static browser prototype lives in [web/](web/). Serve the repository root
 with a static server, then open `http://localhost:8000/web/`.
 
+When GitHub Pages is enabled for this repository, the browser build is published at
+`https://brackishmeadows.github.io/goblet/`.
+
 The same session layer is available from the CLI:
 
 ```powershell
