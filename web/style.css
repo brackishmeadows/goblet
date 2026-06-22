@@ -145,32 +145,49 @@ h1 {
 
 @media (max-width: 700px) {
   .shell {
-    padding: 12px 12px 176px;
-    grid-template-rows: auto auto minmax(220px, 1fr);
+    padding: 8px 8px 150px;
+    grid-template-rows: auto auto minmax(240px, 1fr);
+    gap: 8px;
   }
 
-  .topbar,
-  .controls {
-    align-items: stretch;
+  .topbar {
+    align-items: flex-start;
     flex-direction: column;
+    gap: 4px;
   }
 
   .controls {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: minmax(76px, 0.8fr) repeat(3, minmax(0, 1fr));
+    align-items: center;
+    gap: 8px;
   }
 
   .seed-label {
-    grid-column: 1 / -1;
+    min-width: 0;
+    grid-column: auto;
+    grid-template-columns: 1fr;
+    gap: 4px;
+    font-size: 0;
+  }
+
+  .seed-label input {
+    padding: 8px;
+  }
+
+  .seed-label input::placeholder {
+    font-size: 1rem;
   }
 
   .controls button {
     min-height: 44px;
-    padding: 8px 10px;
+    padding: 7px 8px;
+    font-size: 0.95rem;
   }
 
   .status {
     text-align: left;
+    font-size: 0.95rem;
   }
 
   .command-row {
@@ -178,13 +195,17 @@ h1 {
   }
 
   .command-panel {
-    left: 12px;
-    right: 12px;
-    bottom: 10px;
-    padding: 10px;
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    gap: 8px;
+    padding: 8px;
   }
 
   .quickbar button {
-    flex: 1 1 130px;
+    min-height: 40px;
+    flex: 1 1 120px;
+    padding: 7px 8px;
+    font-size: 0.95rem;
   }
 }
