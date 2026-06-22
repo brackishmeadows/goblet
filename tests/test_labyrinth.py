@@ -199,7 +199,7 @@ class LabyrinthTests(unittest.TestCase):
 
         self.assertIn("> recall moth", output)
         self.assertIn("you remember these things from or about the wax moth:", output)
-        self.assertIn("- the wax moth said: the iron door leads onward.", output)
+        self.assertIn("- the wax moth said: the iron door leads onward; it seemed untested then and is still untested", output)
         self.assertNotIn("Bram asks", output)
 
     def test_remember_aliases_to_recall(self):
@@ -207,7 +207,7 @@ class LabyrinthTests(unittest.TestCase):
 
         self.assertIn("> remember iron door", output)
         self.assertIn("you remember these things from or about the iron door:", output)
-        self.assertIn("the wax moth said: the iron door leads onward.", output)
+        self.assertIn("the wax moth said: the iron door leads onward; it seemed untested then and is still untested", output)
 
     def test_recall_cup_includes_direct_drinking_memory(self):
         output = "\n".join(run_labyrinth_script(["drink glass", "recall cup"]))
@@ -215,8 +215,20 @@ class LabyrinthTests(unittest.TestCase):
         self.assertIn("you remember these things from or about cup:", output)
         self.assertIn("- you did: you sip the glass cup", output)
         self.assertIn("- you learned: the glass cup grants haste; you feel quick next round", output)
-        self.assertIn("- the wax moth said: the bone cup is poison.", output)
+        self.assertIn("- the wax moth said: the bone cup is poison; it seemed untested then and is still untested", output)
         self.assertNotIn("the wax moth said: the wax moth claims", output)
+
+    def test_recall_marks_claim_that_later_proved_true(self):
+        output = "\n".join(run_labyrinth_script(["move iron", "sip wax cup", "recall wax cup"]))
+
+        self.assertIn("you remember these things from or about the wax cup:", output)
+        self.assertIn("the iron rook said: the wax cup is poison; it seemed untested then, and later proved true", output)
+
+    def test_recall_marks_claim_that_later_failed(self):
+        output = "\n".join(run_labyrinth_script(["move iron", "move silver", "sip salt cup", "recall salt cup"]))
+
+        self.assertIn("you remember these things from or about the salt cup:", output)
+        self.assertIn("the glass crow said: the salt cup grants haste; it seemed untested then, but later failed", output)
 
     def test_recall_specific_cup_includes_empty_memory(self):
         output = "\n".join(run_labyrinth_script([
