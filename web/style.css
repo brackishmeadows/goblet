@@ -155,6 +155,20 @@ h1 {
     flex-direction: column;
   }
 
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .seed-label {
+    grid-column: 1 / -1;
+  }
+
+  .controls button {
+    min-height: 44px;
+    padding: 8px 10px;
+  }
+
   .status {
     text-align: left;
   }
@@ -170,8 +184,7 @@ h1 {
     padding: 10px;
   }
 
-  .quickbar button,
-  .controls button {
+  .quickbar button {
     flex: 1 1 130px;
   }
 }
