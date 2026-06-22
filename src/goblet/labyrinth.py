@@ -43,6 +43,11 @@ class MemoryEntry:
     certainty: str = "heard"
     sequence: int = 0
     subjects: list[str] = field(default_factory=list)
+    initial_rating: str = ""
+    initial_reason: str = ""
+    current_rating: str = ""
+    outcome_turn: str | None = None
+    outcome_reason: str = ""
 
 
 @dataclass
@@ -222,6 +227,8 @@ class AssessmentEvidence:
     entry_id: str
     kind: str
     certainty: str
+    initial_rating: str = ""
+    current_rating: str = ""
 
 
 @dataclass(frozen=True)
@@ -2635,13 +2642,13 @@ def singularize_topic(topic: str) -> str:
 
 def recall_entry_summary(state: LabyrinthState, entry: MemoryEntry) -> str:
     if entry.kind == "heard_claim" and entry.source:
-        return f"{render_source_name(state, entry.source)} said: {strip_recalled_claim_prefix(state, entry)}"
+        return f"{render_source_name(state, entry.source)} said: {strip_recalled_claim_prefix(state, entry).rstrip('.')}{claim_audit_suffix(entry)}"
     if entry.kind == "goblet_claim" and entry.source:
         return f"{render_source_name(state, entry.source)} answered: {entry.text}"
     if entry.kind == "liars_claim" and entry.source:
         return f"{render_source_name(state, entry.source)} solved: {entry.text}"
     if entry.kind == "reported_claim" and entry.source:
-        return f"{render_source_name(state, entry.source)} reported: {entry.text}"
+        return f"{render_source_name(state, entry.source)} reported: {entry.text.rstrip('.')}{claim_audit_suffix(entry)}"
     if entry.kind == "action":
         if entry.source == "You":
             return f"you did: {entry.text.rstrip('.')}"
@@ -3463,6 +3470,8 @@ def build_assessment_report(state: LabyrinthState, assessor: Agent, subject: str
                     entry_id=entry.id,
                     kind=entry.kind,
                     certainty=entry.certainty,
+                    initial_rating=entry.initial_rating,
+                    current_rating=entry.current_rating,
                 ))
         elif entry.kind in {"outcome", "inference"} and entry.proposition:
             proposition = canonical_claim_proposition(state, entry.proposition, subject)
@@ -3513,6 +3522,11 @@ def assessment_scores_by_proposition(
         scores[proposition] = scores.get(proposition, 0) + 6
     for item in evidence:
         weight = witness_weight_for_subject(state, assessor, item.source, subject)
+        bucket = audit_bucket(item.current_rating)
+        if bucket == "supported":
+            weight += 2
+        elif bucket == "refuted":
+            weight = 1
         # Repeated testimony stacks naturally because each remembered claim is
         # processed separately. Notorious liars still count as a whisper, not as zero:
         # a bad source is information, just weaker and smellier information.
@@ -4085,7 +4099,32 @@ def render_assessment_evidence_sentence(state: LabyrinthState, report: Assessmen
     parts = []
     for proposition, source_counts in sorted(grouped.items(), key=lambda pair: render_proposition(pair[0])):
         parts.append(f"{render_source_claim_counts(state, source_counts)} that {render_proposition(proposition)}")
+    audit = render_assessment_audit_sentence(report.evidence)
+    if audit:
+        parts.append(audit)
     return render_labyrinth_list(parts) + "."
+
+
+def render_assessment_audit_sentence(evidence: tuple[AssessmentEvidence, ...]) -> str:
+    counts = {"supported": 0, "refuted": 0, "untested": 0}
+    for item in evidence:
+        if not item.initial_rating:
+            continue
+        bucket = audit_bucket(item.current_rating)
+        counts[bucket] = counts.get(bucket, 0) + 1
+    bits: list[str] = []
+    if counts["supported"]:
+        count = counts["supported"]
+        bits.append(f"{render_count_word(count)} claim{'' if count == 1 else 's'} later proved true")
+    if counts["refuted"]:
+        count = counts["refuted"]
+        bits.append(f"{render_count_word(count)} claim{'' if count == 1 else 's'} later failed")
+    if counts["untested"]:
+        count = counts["untested"]
+        bits.append(f"{render_count_word(count)} claim{'' if count == 1 else 's'} still untested")
+    if not bits:
+        return ""
+    return render_labyrinth_list(bits)
 
 
 def render_source_claim_counts(state: LabyrinthState, source_counts: dict[str, int]) -> str:
@@ -5952,17 +5991,32 @@ def supports_hypothesis(supposed: str, observed: str) -> bool:
         return True
     if "is safe" in supposed and "leads to peril" not in observed and ("leads onward" in observed or "is exit" in observed):
         return True
+    if "is safe" in supposed and not any(hazard in observed for hazard in ("is poison", "is sleeping potion", "brings stupor")):
+        if any(benefit in observed for benefit in ("grants haste", "sharpens truth", "is antidote", "is elixir")):
+            return True
     return supports_outcome(supposed, observed)
 
 
 def contradicts_hypothesis(supposed: str, observed: str) -> bool:
     if "is safe" in supposed and "leads to peril" in observed:
         return True
+    if "is safe" in supposed and any(hazard in observed for hazard in ("is poison", "is sleeping potion", "brings stupor")):
+        return True
     if "leads onward" in supposed and "leads to peril" in observed:
         return True
-    if "is poison" in supposed and "is antidote" in observed:
+    if "is poison" in supposed and any(benefit in observed for benefit in ("is antidote", "is elixir", "grants haste", "sharpens truth")):
         return True
-    if "grants haste" in supposed and "is poison" in observed:
+    if "grants haste" in supposed and any(hazard in observed for hazard in ("is poison", "is sleeping potion", "brings stupor")):
+        return True
+    if "sharpens truth" in supposed and any(hazard in observed for hazard in ("is poison", "is sleeping potion", "brings stupor")):
+        return True
+    if "is antidote" in supposed and any(other in observed for other in ("is poison", "grants haste", "sharpens truth", "is sleeping potion", "brings stupor")):
+        return True
+    if "is elixir" in supposed and any(other in observed for other in ("is poison", "grants haste", "sharpens truth", "is sleeping potion", "brings stupor")):
+        return True
+    if "is sleeping potion" in supposed and any(other in observed for other in ("is poison", "grants haste", "sharpens truth", "is antidote", "is elixir")):
+        return True
+    if "brings stupor" in supposed and any(other in observed for other in ("is poison", "grants haste", "sharpens truth", "is antidote", "is elixir")):
         return True
     return contradicts_outcome(supposed, observed)
 
@@ -6010,6 +6064,166 @@ def topic_relevant_round_claim(state: LabyrinthState, agent: Agent, subject: str
 
 def ignorance_claim(agent: Agent, subject: str) -> str:
     return f"{render_agent(agent)} claims they know nothing useful about {render_name(subject) if has_camel_boundary(subject) else render_topic(subject)}."
+
+
+CLAIM_AUDIT_KINDS = {"heard_claim", "reported_claim", "claim_made"}
+
+
+def claim_is_auditable(proposition: str) -> bool:
+    normalized = normalize_alias(proposition)
+    return not any(
+        phrase in normalized
+        for phrase in (
+            "testing whether",
+            "wonders whether",
+            "know nothing useful",
+            "evidence for",
+            "mixed",
+            "said this",
+            "no one has disproved",
+            " assesses ",
+        )
+    )
+
+
+def rate_claim_when_heard(
+    state: LabyrinthState,
+    observer: Agent,
+    kind: str,
+    source: str | None,
+    proposition: str,
+    subjects: list[str],
+) -> tuple[str, str]:
+    if kind == "claim_made" and source == observer.name:
+        return "asserted", "speaker's own claim"
+
+    focus = claim_focus_subject_from_subjects(state, subjects, source)
+    if focus is None:
+        return "unsupported", "no testable subject was clear when heard"
+
+    canonical = canonical_claim_proposition(state, proposition, focus)
+    if canonical is None:
+        return "unsupported", "the claim was too vague to test when heard"
+
+    observed = latest_direct_proposition_about(observer, focus)
+    if observed:
+        observed_normalized = normalize_alias(observed)
+        canonical_normalized = normalize_alias(canonical)
+        if supports_hypothesis(canonical_normalized, observed_normalized):
+            return "already supported", f"{render_proposition(observed)} was already known"
+        if contradicts_hypothesis(canonical_normalized, observed_normalized):
+            return "already contradicted", f"{render_proposition(observed)} was already known"
+
+    if source:
+        stats = source_audit_counts(observer, source, claim_domain_for_subject(state, focus))
+        supported = stats.get("supported", 0)
+        refuted = stats.get("refuted", 0)
+        if supported > refuted and supported > 0:
+            return "plausible", f"{render_source_name(state, source)} had more supported than failed claims in this domain"
+        if refuted > supported and refuted > 0:
+            return "doubtful", f"{render_source_name(state, source)} had more failed than supported claims in this domain"
+
+    return "untested", "no matching outcome had been observed yet"
+
+
+def claim_focus_subject_from_subjects(state: LabyrinthState, subjects: list[str], source: str | None = None) -> str | None:
+    candidates = [subject for subject in subjects if subject != source]
+    for subject in candidates:
+        if is_door_subject(state, subject) or is_cup_subject(state, subject):
+            return subject
+    for subject in candidates:
+        if subject in state.claimants or subject == state.player.name:
+            return subject
+    return None
+
+
+def latest_direct_proposition_about(agent: Agent, subject: str) -> str | None:
+    for entry in sorted(agent.memory.entries_about(subject), key=lambda item: item.sequence, reverse=True):
+        if entry.kind in {"outcome", "inference"} and entry.proposition and proposition_focuses_on(entry.proposition, subject):
+            return entry.proposition
+    return None
+
+
+def claim_domain_for_subject(state: LabyrinthState, subject: str) -> str:
+    if is_door_subject(state, subject):
+        return "door"
+    if is_cup_subject(state, subject):
+        return "cup"
+    if subject in state.claimants or subject == state.player.name:
+        return "person"
+    return "unknown"
+
+
+def source_audit_counts(agent: Agent, source: str, domain: str | None = None) -> dict[str, int]:
+    counts = {"supported": 0, "refuted": 0, "untested": 0}
+    for entry in agent.memory.entries:
+        if entry.kind not in CLAIM_AUDIT_KINDS or entry.source != source:
+            continue
+        if not entry.proposition or not claim_is_auditable(entry.proposition):
+            continue
+        if domain and claim_entry_domain(entry) != domain:
+            continue
+        bucket = audit_bucket(entry.current_rating)
+        counts[bucket] = counts.get(bucket, 0) + 1
+    return counts
+
+
+def claim_entry_domain(entry: MemoryEntry) -> str:
+    for subject in entry.subjects:
+        if subject.endswith("Door"):
+            return "door"
+        if subject.endswith("Cup"):
+            return "cup"
+    return "person" if entry.subjects else "unknown"
+
+
+def audit_bucket(rating: str) -> str:
+    if rating in {"supported", "already supported"}:
+        return "supported"
+    if rating in {"refuted", "already contradicted"}:
+        return "refuted"
+    return "untested"
+
+
+def audit_claims_from_outcome(state: LabyrinthState, observer: Agent, outcome: MemoryEntry) -> None:
+    if outcome.kind != "outcome" or not outcome.proposition or not outcome.subject:
+        return
+    observed = normalize_alias(outcome.proposition)
+    for claim in observer.memory.entries:
+        if claim.kind not in CLAIM_AUDIT_KINDS or not claim.source or not claim.proposition:
+            continue
+        if not claim_is_auditable(claim.proposition):
+            continue
+        if outcome.subject not in claim.subjects:
+            continue
+        claimed = canonical_claim_proposition(state, claim.proposition, outcome.subject)
+        if claimed is None:
+            continue
+        claimed_normalized = normalize_alias(claimed)
+        if supports_hypothesis(claimed_normalized, observed):
+            claim.current_rating = "supported"
+            claim.outcome_turn = outcome.turn
+            claim.outcome_reason = f"later, {render_proposition(outcome.proposition)} was observed"
+        elif contradicts_hypothesis(claimed_normalized, observed):
+            claim.current_rating = "refuted"
+            claim.outcome_turn = outcome.turn
+            claim.outcome_reason = f"later, {render_proposition(outcome.proposition)} was observed"
+
+
+def claim_audit_suffix(entry: MemoryEntry) -> str:
+    if not entry.initial_rating:
+        return ""
+    initial = entry.initial_rating.replace("already ", "")
+    current = audit_bucket(entry.current_rating)
+    if current == "supported":
+        if entry.initial_rating in {"untested", "plausible", "doubtful", "unsupported"}:
+            return f"; it seemed {initial} then, and later proved true"
+        return "; it had already been supported"
+    if current == "refuted":
+        if entry.initial_rating in {"untested", "plausible", "doubtful", "unsupported"}:
+            return f"; it seemed {initial} then, but later failed"
+        return "; it had already been contradicted"
+    return f"; it seemed {initial} then and is still untested"
 
 
 
@@ -6139,6 +6353,21 @@ def remember(
     if proposition:
         entry_subjects.update(extract_subjects(state, proposition))
 
+    initial_rating = ""
+    initial_reason = ""
+    current_rating = ""
+    sorted_subjects = sorted(entry_subjects)
+    if kind in CLAIM_AUDIT_KINDS and proposition and claim_is_auditable(proposition):
+        initial_rating, initial_reason = rate_claim_when_heard(
+            state,
+            observer,
+            kind,
+            source,
+            proposition,
+            sorted_subjects,
+        )
+        current_rating = initial_rating
+
     entry = MemoryEntry(
         id=f"memory-{state.memory_sequence}",
         turn=render_number(state.round_number),
@@ -6151,7 +6380,10 @@ def remember(
         proposition=proposition,
         certainty=certainty,
         sequence=state.memory_sequence,
-        subjects=sorted(entry_subjects),
+        subjects=sorted_subjects,
+        initial_rating=initial_rating,
+        initial_reason=initial_reason,
+        current_rating=current_rating,
     )
     observer.memory.remember(entry)
     maybe_update_social_weight_from_reputation_claim(state, observer, entry)
@@ -6168,6 +6400,7 @@ def maybe_infer_from_entry(state: LabyrinthState, observer: Agent, entry: Memory
         return
     observer.memory.known_propositions.add(entry.proposition)
     update_trust_from_outcome(observer, entry)
+    audit_claims_from_outcome(state, observer, entry)
     update_hypotheses_from_entry(observer, entry)
     state.memory_sequence += 1
     subjects = set(entry.subjects)
