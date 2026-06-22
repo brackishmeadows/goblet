@@ -2588,7 +2588,7 @@ def recall_entries(state: LabyrinthState, subject: str, raw_topic: str) -> list[
                 continue
         if entry.kind in {"action", "outcome"} and not recall_direct_memory_is_relevant(entry, subject, raw_forms):
             continue
-        if recall_entry_matches(entry, subject, raw_forms):
+        if recall_entry_matches(state, entry, subject, raw_forms):
             entries.append(entry)
     return entries
 
@@ -2613,7 +2613,18 @@ def recall_entry_mentions_cup(entry: MemoryEntry) -> bool:
     return "cup" in searchable or any(subject.endswith("Cup") for subject in entry.subjects)
 
 
-def recall_entry_matches(entry: MemoryEntry, subject: str, raw_forms: set[str]) -> bool:
+def recall_entry_matches(state: LabyrinthState, entry: MemoryEntry, subject: str, raw_forms: set[str]) -> bool:
+    if entry.kind in {"heard_claim", "claim_made", "reported_claim"}:
+        if subject and entry.source == subject:
+            return True
+        focus = claim_focus_subject(state, entry)
+        if subject and focus == subject:
+            return True
+        return bool(focus and is_broad_cup_topic(raw_forms) and focus.endswith("Cup"))
+
+    if is_broad_cup_topic(raw_forms) and recall_entry_mentions_cup(entry):
+        return True
+
     if subject and (entry.source == subject or entry.subject == subject or subject in entry.subjects):
         return True
     searchable = normalize_alias(" ".join(
@@ -2626,7 +2637,17 @@ def recall_entry_matches(entry: MemoryEntry, subject: str, raw_forms: set[str]) 
         )
         if part
     ))
-    return any(form and (form in searchable or singularize_topic(form) in searchable) for form in raw_forms)
+    return any(topic_form_matches(searchable, form) for form in raw_forms)
+
+
+def topic_form_matches(searchable: str, form: str) -> bool:
+    if not form:
+        return False
+    if " " in form:
+        return f" {form} " in f" {searchable} "
+    if len(form) < 4:
+        return False
+    return re.search(rf"\b{re.escape(form)}\b", searchable) is not None
 
 
 def recall_topic_forms(raw_topic: str) -> set[str]:
@@ -2638,7 +2659,7 @@ def recall_topic_forms(raw_topic: str) -> set[str]:
 def singularize_topic(topic: str) -> str:
     if topic.endswith("ies") and len(topic) > 3:
         return topic[:-3] + "y"
-    if topic.endswith("s") and len(topic) > 1:
+    if topic.endswith("s") and len(topic) > 4:
         return topic[:-1]
     return topic
 

@@ -224,6 +224,17 @@ class LabyrinthTests(unittest.TestCase):
         self.assertIn("you remember these things from or about the iron door:", output)
         self.assertIn("the wax moth said: the iron door leads onward; it seemed untested then and is still untested", output)
 
+    def test_recall_door_excludes_unrelated_claims_from_same_witnesses(self):
+        output = "\n".join(run_labyrinth_script(["drink glass", "recall brass"]))
+
+        self.assertIn("you remember these things from or about the brass door:", output)
+        self.assertIn("Aster said: the brass door is safe; it seemed untested then, but later failed", output)
+        self.assertIn("you saw Aster act: Aster moves through the brass door", output)
+        self.assertIn("you learned: the brass door leads to peril; Aster dies", output)
+        self.assertNotIn("Bram said: the bone cup is poison", output)
+        self.assertNotIn("Bram said: the glass cup grants haste", output)
+        self.assertNotIn("Vey said: Bram is useful but reckless", output)
+
     def test_recall_cup_includes_direct_drinking_memory(self):
         output = "\n".join(run_labyrinth_script(["drink glass", "recall cup"]))
 
