@@ -26,17 +26,19 @@
 
       <pre id="transcript" class="transcript" aria-live="polite"></pre>
 
-      <form id="commandForm" class="command-row">
-        <input id="commandInput" type="text" autocomplete="off" spellcheck="false" placeholder="type a command">
-        <button id="submitButton" type="submit">Submit</button>
-      </form>
+      <div class="command-panel">
+        <form id="commandForm" class="command-row">
+          <input id="commandInput" type="text" autocomplete="off" spellcheck="false" placeholder="type a command">
+          <button id="submitButton" type="submit">Submit</button>
+        </form>
 
-      <section class="quickbar" aria-label="Quick commands">
-        <button data-command="help" type="button">Help</button>
-        <button data-command="look" type="button">Look</button>
-        <button id="copyButton" type="button">Copy transcript</button>
-        <button id="downloadButton" type="button">Export transcript</button>
-      </section>
+        <section class="quickbar" aria-label="Quick commands">
+          <button data-command="help" type="button">Help</button>
+          <button data-command="look" type="button">Look</button>
+          <button id="copyButton" type="button">Copy transcript</button>
+          <button id="downloadButton" type="button">Export transcript</button>
+        </section>
+      </div>
     </main>
     <script src="app.js"></script>
   </body>
