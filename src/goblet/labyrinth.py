@@ -2167,6 +2167,9 @@ def validate_player_command(state: LabyrinthState, command: str) -> str | None:
             return f"you cannot move through {render_topic(command.removeprefix('move ').strip())}; no such door is here"
         return None
 
+    if command == "assess" or command.startswith("assess "):
+        return "ask whom to assess what? Try: ask Aster to assess Vey"
+
     return f"unknown action: {command}"
 
 
@@ -3863,21 +3866,19 @@ def render_person_assessment_claim(state: LabyrinthState, assessor: Agent, perso
     if person is None:
         return f"{render_agent(assessor)} assesses {render_topic(person_subject)}: no such witness holds still long enough to judge."
     rendered_person = render_agent(person)
-    weight = witness_weight_for_subject(state, assessor, person_subject, "*")
-    label = witness_weight_label(weight)
-    if lie:
-        label = opposite_witness_label(label)
     entries = claims_by_source_about_things(state, assessor, person_subject)
-    true_count, false_count, unknown_count = claim_truth_counts(state, entries)
+    supported_count, refuted_count, unknown_count = claim_audit_counts(entries)
     memory_line = person_assessment_memory_line(state, assessor, person_subject)
     lines = [f"{render_agent(assessor)} assesses {rendered_person}:"]
-    lines.append(f"{rendered_person} {render_lie_profile(person.lie_rate)}; as a witness, {render_agent(assessor)} weighs them as a {label}.")
+    reliability_line = person_reliability_line(assessor, rendered_person, supported_count, refuted_count, lie)
+    if reliability_line:
+        lines.append(reliability_line)
     if entries:
         bits = []
-        if true_count:
-            bits.append(f"{render_count_word(true_count)} supported claim{'' if true_count == 1 else 's'}")
-        if false_count:
-            bits.append(f"{render_count_word(false_count)} false claim{'' if false_count == 1 else 's'}")
+        if supported_count:
+            bits.append(f"{render_count_word(supported_count)} supported claim{'' if supported_count == 1 else 's'}")
+        if refuted_count:
+            bits.append(f"{render_count_word(refuted_count)} refuted claim{'' if refuted_count == 1 else 's'}")
         if unknown_count:
             bits.append(f"{render_count_word(unknown_count)} untested claim{'' if unknown_count == 1 else 's'}")
         if bits:
@@ -3890,6 +3891,20 @@ def render_person_assessment_claim(state: LabyrinthState, assessor: Agent, perso
     if memory_line:
         lines.append(memory_line)
     return " ".join(lines)
+
+
+def person_reliability_line(assessor: Agent, rendered_person: str, supported_count: int, refuted_count: int, lie: bool) -> str:
+    if not supported_count and not refuted_count:
+        return f"{render_agent(assessor)} has no proven reliability record for {rendered_person} yet."
+    if supported_count > refuted_count:
+        label = "good witness" if supported_count >= refuted_count + 2 else "tentatively reliable witness"
+    elif refuted_count > supported_count:
+        label = "notorious liar" if refuted_count >= supported_count + 2 else "doubtful witness"
+    else:
+        label = "uncertain witness"
+    if lie:
+        label = opposite_witness_label(label)
+    return f"from tested memory, {render_agent(assessor)} weighs {rendered_person} as a {label}."
 
 
 def opposite_witness_label(label: str) -> str:
@@ -3916,25 +3931,17 @@ def claims_by_source_about_things(state: LabyrinthState, assessor: Agent, source
     return sorted(entries, key=lambda entry: entry.sequence, reverse=True)
 
 
-def claim_truth_counts(state: LabyrinthState, entries: list[MemoryEntry]) -> tuple[int, int, int]:
-    true_count = false_count = unknown_count = 0
+def claim_audit_counts(entries: list[MemoryEntry]) -> tuple[int, int, int]:
+    supported_count = refuted_count = unknown_count = 0
     for entry in entries:
-        focus = claim_focus_subject(state, entry)
-        if focus is None:
-            unknown_count += 1
-            continue
-        proposition = canonical_claim_proposition(state, entry.proposition or entry.text, focus)
-        if proposition is None:
-            unknown_count += 1
-            continue
-        verdict = objective_truth_for_proposition(state, focus, proposition)
-        if verdict is True:
-            true_count += 1
-        elif verdict is False:
-            false_count += 1
+        bucket = audit_bucket(entry.current_rating)
+        if bucket == "supported":
+            supported_count += 1
+        elif bucket == "refuted":
+            refuted_count += 1
         else:
             unknown_count += 1
-    return true_count, false_count, unknown_count
+    return supported_count, refuted_count, unknown_count
 
 
 def recent_claim_summary(state: LabyrinthState, entries: list[MemoryEntry]) -> str:

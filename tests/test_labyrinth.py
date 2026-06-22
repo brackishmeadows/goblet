@@ -76,6 +76,13 @@ class LabyrinthTests(unittest.TestCase):
         self.assertIn("- recall THING (or remember THING)", output)
         self.assertNotIn("Aster moves through the brass door", output)
 
+    def test_bare_assess_points_to_assessment_form(self):
+        output = "\n".join(run_labyrinth_script(["assess"]))
+
+        self.assertIn("> assess", output)
+        self.assertIn("ask whom to assess what? Try: ask Aster to assess Vey", output)
+        self.assertNotIn("unknown action: assess", output)
+
     def test_help_aliases_to_actions(self):
         output = "\n".join(run_labyrinth_script(["help"]))
 
@@ -131,6 +138,14 @@ class LabyrinthTests(unittest.TestCase):
 
         self.assertIn("you ask Aster about health", output)
         self.assertIn("Aster claims Aster looks proud.", output)
+
+    def test_person_assessment_does_not_reveal_hidden_lie_profile(self):
+        output = "\n".join(run_labyrinth_script(["ask Aster assess Vey"]))
+
+        self.assertIn("Aster assesses Vey: Aster has no proven reliability record for Vey yet.", output)
+        self.assertIn("in memory: one untested claim.", output)
+        self.assertNotIn("Vey often tells the truth", output)
+        self.assertNotIn("as a witness, Aster weighs them as a steady witness", output)
 
     def test_low_health_agents_act_with_adverb(self):
         agent = Agent("Aven", hp=TWO)
