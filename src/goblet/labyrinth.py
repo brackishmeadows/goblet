@@ -1093,6 +1093,8 @@ def resolve_turn_checked(state: LabyrinthState, command: str) -> CommandOutcome:
         return CommandOutcome(render_help(state), advances=False)
     if command.startswith("help "):
         return CommandOutcome(resolve_help(state, command), advances=False)
+    if command == "look":
+        return CommandOutcome(render_turn(state), advances=False)
     if command.startswith("look "):
         return CommandOutcome(resolve_look(state, command), advances=False)
     if command.startswith("recall ") or command.startswith("remember "):
@@ -1125,6 +1127,12 @@ def normalize_bare_agent_instruction(state: LabyrinthState, command: str) -> str
 
 
 def normalize_player_command(command: str) -> str:
+    if command == "witnesses":
+        return "look witnesses"
+    if command == "inspect":
+        return "look"
+    if command.startswith("inspect "):
+        return "look " + command.removeprefix("inspect ").strip()
     if command == "go":
         return "move"
     if command.startswith("go "):
@@ -2085,10 +2093,13 @@ def topic_looks_like_goblet_question(topic: str) -> bool:
 def resolve_look(state: LabyrinthState, command: str) -> list[str]:
     target_raw = command.removeprefix("look ").strip()
     if not target_raw:
-        return ["look at what?"]
+        return render_turn(state)
 
     normalized = normalize_alias(target_raw)
     room = current_room(state)
+
+    if normalized in {"witness", "witnesses", "agent", "agents", "people", "person", "traveller", "travellers", "traveler", "travelers"}:
+        return render_witnesses(state)
 
     if normalized in {"door", "doors"}:
         lines = ["visible doors:"]
@@ -2119,6 +2130,16 @@ def resolve_look(state: LabyrinthState, command: str) -> list[str]:
     if agent_error:
         return [agent_error]
     return [f"you cannot see {render_topic(target_raw)} here"]
+
+
+def render_witnesses(state: LabyrinthState) -> list[str]:
+    agents = present_agents(state)
+    if not agents:
+        return ["present witnesses:", "- no one"]
+    lines = ["present witnesses:"]
+    for agent in agents:
+        lines.append(f"- {render_agent(agent)} ({agent_kind(agent)})")
+    return lines
 
 
 def validate_player_command(state: LabyrinthState, command: str) -> str | None:
@@ -2720,10 +2741,14 @@ def parse_ask_command(state: LabyrinthState, command: str) -> tuple[Agent, str, 
     marker = " about "
     marker_index = body.lower().find(marker)
     if marker_index < 0:
-        return "ask whom about what?"
+        split = parse_omitted_about_ask(state, body)
+        if split is None:
+            return "ask whom about what?"
+        target_name, topic = split
+    else:
+        target_name = body[:marker_index].strip()
+        topic = body[marker_index + len(marker):].strip()
 
-    target_name = body[:marker_index].strip()
-    topic = body[marker_index + len(marker):].strip()
     if not target_name or not topic:
         return "ask whom about what?"
 
@@ -2757,10 +2782,14 @@ def parse_ask_command_for_agent(state: LabyrinthState, asker: Agent, command: st
     marker = " about "
     marker_index = body.lower().find(marker)
     if marker_index < 0:
-        return "ask whom about what?"
+        split = parse_omitted_about_ask_from_room(state, body, asker.room_index)
+        if split is None:
+            return "ask whom about what?"
+        target_name, topic = split
+    else:
+        target_name = body[:marker_index].strip()
+        topic = body[marker_index + len(marker):].strip()
 
-    target_name = body[:marker_index].strip()
-    topic = body[marker_index + len(marker):].strip()
     if not target_name or not topic:
         return "ask whom about what?"
 
@@ -2787,6 +2816,25 @@ def parse_ask_command_for_agent(state: LabyrinthState, asker: Agent, command: st
         return f"{render_agent(target)} would not know what {render_topic(topic)} means"
 
     return target, topic, subject
+
+
+def parse_omitted_about_ask(state: LabyrinthState, body: str) -> tuple[str, str] | None:
+    return parse_omitted_about_ask_from_room(state, body, state.room_index)
+
+
+def parse_omitted_about_ask_from_room(state: LabyrinthState, body: str, room_index: int) -> tuple[str, str] | None:
+    words = body.split()
+    if len(words) < 2:
+        return None
+    for length in range(min(3, len(words) - 1), 0, -1):
+        possible = " ".join(words[:length])
+        target, error = resolve_agent_name_from_room(state, possible, room_index)
+        if error or target is None:
+            continue
+        topic = " ".join(words[length:]).strip()
+        if topic:
+            return possible, topic
+    return None
 
 
 def is_health_topic(topic: str) -> bool:

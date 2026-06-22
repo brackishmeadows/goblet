@@ -90,6 +90,23 @@ class LabyrinthTests(unittest.TestCase):
         self.assertIn("actions:", output)
         self.assertIn("- move DOOR (or go DOOR)", output)
 
+    def test_inspect_aliases_to_look(self):
+        output = "\n".join(run_labyrinth_script(["inspect Aster"]))
+
+        self.assertIn("> inspect Aster", output)
+        self.assertIn("Aster looks proud.", output)
+        self.assertNotIn("Aster moves through the brass door", output)
+
+    def test_witnesses_lists_present_agents_without_advancing(self):
+        output = "\n".join(run_labyrinth_script(["witnesses", "look witnesses"]))
+
+        self.assertIn("> witnesses", output)
+        self.assertIn("present witnesses:", output)
+        self.assertIn("- the wax moth (fixed witness)", output)
+        self.assertIn("> look witnesses", output)
+        self.assertEqual(output.count("present witnesses:"), 2)
+        self.assertNotIn("Aster moves through the brass door", output)
+
     def test_non_move_actions_do_not_relist_room(self):
         output = "\n".join(run_labyrinth_script(["actions", "recall moth"]))
 
@@ -164,6 +181,13 @@ class LabyrinthTests(unittest.TestCase):
         self.assertIn("> ask Bram two plus two", output)
         self.assertIn("you ask Bram what two plus two", output)
         self.assertIn("Bram claims two plus two is four.", output)
+
+    def test_ask_can_omit_about_for_topic_questions(self):
+        output = "\n".join(run_labyrinth_script(["ask Bram bone cup"]))
+
+        self.assertIn("> ask Bram bone cup", output)
+        self.assertIn("you ask Bram about the bone cup", output)
+        self.assertIn("Bram claims the bone cup is poison.", output)
 
     def test_ask_if_world_claim_is_not_goblet_question(self):
         output = "\n".join(run_labyrinth_script(["ask moth if iron door leads to peril"]))
