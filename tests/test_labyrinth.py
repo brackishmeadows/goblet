@@ -107,6 +107,17 @@ class LabyrinthTests(unittest.TestCase):
         self.assertEqual(output.count("present witnesses:"), 2)
         self.assertNotIn("Aster moves through the brass door", output)
 
+    def test_doors_and_cups_alias_to_look_lists(self):
+        output = "\n".join(run_labyrinth_script(["doors", "cups"]))
+
+        self.assertIn("> doors", output)
+        self.assertIn("visible doors:", output)
+        self.assertIn("- the brass door", output)
+        self.assertIn("> cups", output)
+        self.assertIn("visible cups:", output)
+        self.assertIn("- the bone cup: very full", output)
+        self.assertNotIn("Aster moves through the brass door", output)
+
     def test_non_move_actions_do_not_relist_room(self):
         output = "\n".join(run_labyrinth_script(["actions", "recall moth"]))
 

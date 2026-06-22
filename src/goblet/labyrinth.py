@@ -1129,6 +1129,10 @@ def normalize_bare_agent_instruction(state: LabyrinthState, command: str) -> str
 def normalize_player_command(command: str) -> str:
     if command == "witnesses":
         return "look witnesses"
+    if command == "doors":
+        return "look doors"
+    if command == "cups":
+        return "look cups"
     if command == "inspect":
         return "look"
     if command.startswith("inspect "):
