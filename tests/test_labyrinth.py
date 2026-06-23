@@ -89,6 +89,23 @@ class LabyrinthTests(unittest.TestCase):
         self.assertIn("> help", output)
         self.assertIn("actions:", output)
         self.assertIn("- move DOOR (or go DOOR)", output)
+        self.assertIn("- wait", output)
+
+    def test_wait_advances_room_actions(self):
+        output = "\n".join(run_labyrinth_script(["wait"]))
+
+        self.assertIn("> wait", output)
+        self.assertIn("you wait", output)
+        self.assertIn("Aster moves through the brass door", output)
+        self.assertIn("the brass door leads to peril; Aster dies", output)
+
+    def test_help_wait_explains_action(self):
+        output = "\n".join(run_labyrinth_script(["help wait"]))
+
+        self.assertIn("> help wait", output)
+        self.assertIn("wait spends your action and lets the room act.", output)
+        self.assertIn("- wait", output)
+        self.assertNotIn("Aster moves through the brass door", output)
 
     def test_inspect_aliases_to_look(self):
         output = "\n".join(run_labyrinth_script(["inspect Aster"]))

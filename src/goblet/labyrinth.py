@@ -388,7 +388,7 @@ def run_labyrinth_interactive(input_func=input, print_func=print, random_seed: s
     state = new_random_labyrinth(random_seed) if random_seed is not None else new_labyrinth()
     write = lambda line="": print_func(colorize_interactive_line(line))
     write("Liar's Labyrinth")
-    write("commands: ask, tell, sip, move, push, slap, look, recall, help, quit")
+    write("commands: ask, tell, sip, move, push, slap, wait, look, recall, help, quit")
     write("")
     should_render_room = True
     while state.player.alive and not state.escaped:
@@ -446,8 +446,8 @@ def run_labyrinth_interactive(input_func=input, print_func=print, random_seed: s
 
 
 def new_labyrinth_post_session(random_seed: str | int | None = None) -> LabyrinthPostSession:
-    seed = None if random_seed is None else str(random_seed)
-    state = new_random_labyrinth(seed) if seed is not None else new_labyrinth()
+    seed = DEFAULT_LABYRINTH_SEED if random_seed is None else str(random_seed)
+    state = new_random_labyrinth(seed)
     return LabyrinthPostSession(state=state, random_seed=seed)
 
 
@@ -588,6 +588,7 @@ def resolve_post_sleep_until_ready(state: LabyrinthState) -> list[str]:
 
 PLAYER_COLOR = "\033[96m"
 RESET_COLOR = "\033[0m"
+DEFAULT_LABYRINTH_SEED = "0"
 
 
 def colorize_prompt(prompt: str) -> str:
@@ -1112,7 +1113,7 @@ def normalize_bare_agent_instruction(state: LabyrinthState, command: str) -> str
     words = command.split()
     if len(words) < 2:
         return command
-    if words[0] in {"ask", "tell", "sip", "move", "push", "slap", "look", "recall", "remember", "help"}:
+    if words[0] in {"ask", "tell", "sip", "move", "push", "slap", "wait", "look", "recall", "remember", "help"}:
         return command
 
     for length in range(min(3, len(words) - 1), 0, -1):
@@ -1226,6 +1227,7 @@ def render_help(state: LabyrinthState) -> list[str]:
         f"- move {example_door_short(state)} (or go {example_door_short(state)})",
         f"- push {agent} through {example_door_short(state)}",
         f"- slap {agent}",
+        "- wait",
         "- recall THING (or remember THING)",
         f"- recall {door} (or remember {cup})",
         f"- look {agent}",
@@ -1257,6 +1259,7 @@ def render_help_help_manual(state: LabyrinthState) -> list[str]:
         "- help move",
         "- help push",
         "- help slap",
+        "- help wait",
         "- help look",
         "- help recall",
         "useful concept pages:",
@@ -1476,6 +1479,8 @@ def resolve_help(state: LabyrinthState, command: str) -> list[str]:
         return render_action_manual(state, "push")
     if normalized == "slap":
         return render_action_manual(state, "slap")
+    if normalized == "wait":
+        return render_action_manual(state, "wait")
     if normalized in {"recall", "remember", "memory"}:
         return render_action_manual(state, "recall")
     if normalized == "look":
@@ -1484,7 +1489,7 @@ def resolve_help(state: LabyrinthState, command: str) -> list[str]:
         return ["quit leaves the labyrinth unresolved."]
 
     words = normalized.split()
-    if words and words[0] in {"ask", "tell", "sip", "drink", "move", "go", "push", "slap", "recall", "remember", "look"}:
+    if words and words[0] in {"ask", "tell", "sip", "drink", "move", "go", "push", "slap", "wait", "recall", "remember", "look"}:
         if words[0] == "tell" and len(words) > 1:
             instruction_help = render_instruction_like_manual(state, topic.removeprefix("tell").strip())
             if instruction_help is not None:
@@ -1672,6 +1677,14 @@ def render_action_manual(state: LabyrinthState, action: str) -> list[str]:
             "sleeping travellers wake easily; fixed witnesses may need more than one slap if the sleep is still deep.",
             "witnesses remember slaps as violence, because of course they do.",
             "useful when someone is about to drink or enter something stupid. morally crunchy when they are just a toad.",
+        ]
+    if action == "wait":
+        return [
+            "wait spends your action and lets the room act.",
+            "form:",
+            "- wait",
+            "useful when you want to watch intentions resolve, preserve your hands, or let someone else test the bad idea.",
+            "waiting is not safety. the labyrinth does not pause just because you do.",
         ]
     if action == "recall":
         return [
@@ -2147,6 +2160,9 @@ def render_witnesses(state: LabyrinthState) -> list[str]:
 
 
 def validate_player_command(state: LabyrinthState, command: str) -> str | None:
+    if command == "wait":
+        return None
+
     if command.startswith("slap "):
         target_raw = command.removeprefix("slap ").strip()
         if not target_raw:
@@ -3136,7 +3152,9 @@ def resolve_player_turn(state: LabyrinthState, command: str) -> tuple[list[str],
     lines: list[str] = []
     slapped = None
     command = command.strip()
-    if command.startswith("slap "):
+    if command == "wait":
+        lines.append("you wait")
+    elif command.startswith("slap "):
         slapped_raw = command.removeprefix("slap ").strip()
         slapped_agent, error = resolve_agent_name(state, slapped_raw)
         if slapped_agent is not None:

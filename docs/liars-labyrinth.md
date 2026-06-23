@@ -92,7 +92,7 @@ You are trapped in a maze with unreliable claimants. They make claims, believe o
 
 The player is also an agent in the maze, but not necessarily a claimant.
 
-The player can ask, tell, sip, move, and slap.
+The player can ask, tell, sip, move, slap, and wait.
 
 The core pressure:
 

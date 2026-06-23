@@ -126,11 +126,13 @@ sip CUP / drink CUP
 move DOOR / go DOOR
 push NAME through DOOR
 slap NAME
+wait
 recall THING / remember THING
 quit / exit
 ```
 
-`look`, `help`, `actions`, and `recall` do not advance the round. Most other
+`look`, `help`, `actions`, and `recall` do not advance the round. `wait` spends
+your action and lets the room act. Most other
 commands spend a player action. Moving to a new room can immediately show the
 new room.
 

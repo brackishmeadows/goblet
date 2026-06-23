@@ -17,6 +17,14 @@ COMMANDS = [
 
 
 class BrowserSessionTests(unittest.TestCase):
+    def test_default_session_uses_seed_zero(self):
+        default_packet = browser_session.start()
+        seeded_packet = browser_session.start("0")
+
+        self.assertEqual(default_packet["seed"], "0")
+        self.assertEqual(default_packet["lines"], seeded_packet["lines"])
+        self.assertIn("random seed: 0", default_packet["transcript"])
+
     def test_seeded_session_is_deterministic(self):
         first = run_seeded_transcript("browser-seed")
         second = run_seeded_transcript("browser-seed")
