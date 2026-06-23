@@ -65,6 +65,51 @@ class LabyrinthTests(unittest.TestCase):
         self.assertIn("you sip the bone cup", output)
         self.assertIn("the bone cup is poison; you become poisoned", output)
 
+    def test_bare_sip_and_drink_prompt_for_target(self):
+        output = "\n".join(run_labyrinth_script(["sip", "drink"]))
+
+        self.assertIn("> sip", output)
+        self.assertIn("sip what?", output)
+        self.assertIn("visible cups:", output)
+        self.assertIn("- the bone cup: very full", output)
+        self.assertIn("> drink", output)
+        self.assertEqual(output.count("sip what?"), 2)
+        self.assertEqual(output.count("visible cups:"), 2)
+        self.assertNotIn("unknown action: sip", output)
+
+    def test_bare_move_and_go_prompt_for_target(self):
+        output = "\n".join(run_labyrinth_script(["move", "go"]))
+
+        self.assertIn("> move", output)
+        self.assertIn("move where?", output)
+        self.assertIn("visible doors:", output)
+        self.assertIn("- the brass door", output)
+        self.assertIn("> go", output)
+        self.assertEqual(output.count("move where?"), 2)
+        self.assertEqual(output.count("visible doors:"), 2)
+        self.assertNotIn("unknown action: move", output)
+
+    def test_bare_social_commands_prompt_for_targets(self):
+        output = "\n".join(run_labyrinth_script(["ask", "tell", "push", "slap"]))
+
+        self.assertIn("> ask", output)
+        self.assertIn("ask whom about what?", output)
+        self.assertIn("- ask Aster about the brass door", output)
+        self.assertIn("> tell", output)
+        self.assertIn("tell whom what?", output)
+        self.assertIn("- tell Aster the bone cup is poison", output)
+        self.assertIn("> push", output)
+        self.assertIn("push whom where?", output)
+        self.assertIn("- push Aster through brass", output)
+        self.assertIn("> slap", output)
+        self.assertIn("slap whom?", output)
+        self.assertIn("- slap Aster", output)
+        self.assertIn("present witnesses:", output)
+        self.assertNotIn("unknown action: ask", output)
+        self.assertNotIn("unknown action: tell", output)
+        self.assertNotIn("unknown action: push", output)
+        self.assertNotIn("unknown action: slap", output)
+
     def test_actions_lists_available_actions_without_advancing(self):
         output = "\n".join(run_labyrinth_script(["actions"]))
 
@@ -125,7 +170,7 @@ class LabyrinthTests(unittest.TestCase):
         self.assertNotIn("Aster moves through the brass door", output)
 
     def test_doors_and_cups_alias_to_look_lists(self):
-        output = "\n".join(run_labyrinth_script(["doors", "cups"]))
+        output = "\n".join(run_labyrinth_script(["doors", "cups", "exits", "drinks"]))
 
         self.assertIn("> doors", output)
         self.assertIn("visible doors:", output)
@@ -133,6 +178,10 @@ class LabyrinthTests(unittest.TestCase):
         self.assertIn("> cups", output)
         self.assertIn("visible cups:", output)
         self.assertIn("- the bone cup: very full", output)
+        self.assertIn("> exits", output)
+        self.assertIn("> drinks", output)
+        self.assertEqual(output.count("visible doors:"), 2)
+        self.assertEqual(output.count("visible cups:"), 2)
         self.assertNotIn("Aster moves through the brass door", output)
 
     def test_non_move_actions_do_not_relist_room(self):

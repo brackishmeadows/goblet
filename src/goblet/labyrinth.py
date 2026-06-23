@@ -1104,7 +1104,7 @@ def resolve_turn_checked(state: LabyrinthState, command: str) -> CommandOutcome:
     command = normalize_bare_agent_instruction(state, command)
     validation_error = validate_player_command(state, command)
     if validation_error:
-        return CommandOutcome([validation_error], advances=False)
+        return CommandOutcome(validation_error.splitlines(), advances=False)
 
     return CommandOutcome(resolve_turn(state, command), advances=True)
 
@@ -1132,7 +1132,11 @@ def normalize_player_command(command: str) -> str:
         return "look witnesses"
     if command == "doors":
         return "look doors"
+    if command == "exits":
+        return "look doors"
     if command == "cups":
+        return "look cups"
+    if command == "drinks":
         return "look cups"
     if command == "inspect":
         return "look"
@@ -2118,15 +2122,11 @@ def resolve_look(state: LabyrinthState, command: str) -> list[str]:
     if normalized in {"witness", "witnesses", "agent", "agents", "people", "person", "traveller", "travellers", "traveler", "travelers"}:
         return render_witnesses(state)
 
-    if normalized in {"door", "doors"}:
-        lines = ["visible doors:"]
-        lines.extend(f"- {render_name(door.name)}" for door in room.doors.values())
-        return lines
+    if normalized in {"door", "doors", "exit", "exits"}:
+        return render_visible_doors(room)
 
-    if normalized in {"cup", "cups"}:
-        lines = ["visible cups:"]
-        lines.extend(f"- {render_name(cup.name)}: {render_cup_fullness(cup.fifths)}" for cup in room.cups.values())
-        return lines
+    if normalized in {"cup", "cups", "drink", "drinks"}:
+        return render_visible_cups(room)
 
     target, agent_error = resolve_agent_name(state, target_raw)
     if target is not None:
@@ -2159,14 +2159,75 @@ def render_witnesses(state: LabyrinthState) -> list[str]:
     return lines
 
 
+def render_visible_doors(room: Room) -> list[str]:
+    lines = ["visible doors:"]
+    lines.extend(f"- {render_name(door.name)}" for door in room.doors.values())
+    return lines
+
+
+def render_visible_cups(room: Room) -> list[str]:
+    lines = ["visible cups:"]
+    lines.extend(f"- {render_name(cup.name)}: {render_cup_fullness(cup.fifths)}" for cup in room.cups.values())
+    return lines
+
+
+def render_action_prompt(state: LabyrinthState, prompt: str, examples: list[str]) -> str:
+    lines = [prompt]
+    if examples:
+        lines.append("try:")
+        lines.extend(f"- {example}" for example in examples)
+    return "\n".join(lines)
+
+
+def action_prompt_examples(state: LabyrinthState, action: str) -> list[str]:
+    agent = example_agent(state)
+    cup = example_cup(state)
+    cup_short = example_cup_short(state)
+    door = example_door(state)
+    door_short = example_door_short(state)
+    if action == "ask":
+        return [
+            f"ask {agent} about {door}",
+            f"ask {agent} whether {cup} is poison",
+            f"ask {agent} to assess {cup}",
+        ]
+    if action == "tell":
+        return [
+            f"tell {agent} {cup} is poison",
+            f"tell {agent} to go {door_short}",
+        ]
+    if action == "push":
+        return [
+            f"push {agent} through {door_short}",
+        ]
+    if action == "slap":
+        return [
+            f"slap {agent}",
+        ]
+    if action == "sip":
+        return [
+            f"sip {cup_short}",
+            f"drink {cup_short}",
+        ]
+    if action == "move":
+        return [
+            f"move {door_short}",
+            f"go {door_short}",
+        ]
+    return []
+
+
 def validate_player_command(state: LabyrinthState, command: str) -> str | None:
     if command == "wait":
         return None
 
+    if command == "slap":
+        return render_action_prompt(state, "slap whom?", action_prompt_examples(state, "slap"))
+
     if command.startswith("slap "):
         target_raw = command.removeprefix("slap ").strip()
         if not target_raw:
-            return "slap whom?"
+            return render_action_prompt(state, "slap whom?", action_prompt_examples(state, "slap"))
         target, error = resolve_agent_name(state, target_raw)
         if error:
             return error
@@ -2174,17 +2235,42 @@ def validate_player_command(state: LabyrinthState, command: str) -> str | None:
             return f"you cannot slap {render_topic(target_raw)}; no one by that name is here"
         return None
 
+    if command == "push":
+        return "\n".join([
+            render_action_prompt(state, "push whom where?", action_prompt_examples(state, "push")),
+            *render_witnesses(state),
+            *render_visible_doors(current_room(state)),
+        ])
+
     if command.startswith("push "):
         parsed = parse_push_command(state, command)
         if isinstance(parsed, str):
             return parsed
         return None
 
+    if command == "ask":
+        return "\n".join([
+            render_action_prompt(state, "ask whom about what?", action_prompt_examples(state, "ask")),
+            *render_witnesses(state),
+        ])
+
     if command.startswith("ask "):
         return validate_ask_command(state, command)
 
+    if command == "tell":
+        return "\n".join([
+            render_action_prompt(state, "tell whom what?", action_prompt_examples(state, "tell")),
+            *render_witnesses(state),
+        ])
+
     if command.startswith("tell "):
         return validate_tell_command(state, command)
+
+    if command == "sip":
+        return "\n".join([
+            render_action_prompt(state, "sip what?", action_prompt_examples(state, "sip")),
+            *render_visible_cups(current_room(state)),
+        ])
 
     if command.startswith("sip "):
         cup_name = parse_target(command, "sip ")
@@ -2196,6 +2282,12 @@ def validate_player_command(state: LabyrinthState, command: str) -> str | None:
         if cup is None:
             return f"you cannot sip {render_topic(command.removeprefix('sip ').strip())}; no such cup is here"
         return None
+
+    if command == "move":
+        return "\n".join([
+            render_action_prompt(state, "move where?", action_prompt_examples(state, "move")),
+            *render_visible_doors(current_room(state)),
+        ])
 
     if command.startswith("move "):
         door_name = parse_target(command, "move ")
