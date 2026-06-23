@@ -53,6 +53,8 @@ an unknown number is greater than five
   
 ### Play Liar's Labyrinth
 
+![Liar's Labyrinth](liars-labyrinth.png)
+
 [Play online](https://brackishmeadows.github.io/goblet/) or read the [Liar's Labyrinth systems notes](docs/liars-labyrinth.md).
 
 Liar's Labyrinth is a command-first social hazard crawler built on Goblet's
