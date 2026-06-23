@@ -6,10 +6,15 @@
     <meta http-equiv="cache-control" content="no-cache">
     <meta http-equiv="pragma" content="no-cache">
     <title>Liar's Labyrinth</title>
-    <link rel="stylesheet" href="style.css?v=20260622-title-border-state-3">
+    <link rel="stylesheet" href="style.css?v=20260623-labyrinth-splash">
     <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
   </head>
   <body>
+    <div id="loadingSplash" class="loading-splash" role="status" aria-live="polite">
+      <img src="../liars-labyrinth.png" alt="Liar's Labyrinth">
+      <div class="loading-splash-status">loading python...</div>
+    </div>
+
     <main class="shell">
       <section class="controls" aria-label="Game controls">
         <label class="seed-label">
@@ -43,6 +48,6 @@
         </section>
       </div>
     </main>
-    <script src="app.js?v=20260622-title-border-state-3"></script>
+    <script src="app.js?v=20260623-labyrinth-splash"></script>
   </body>
 </html>

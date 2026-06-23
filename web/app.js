@@ -2,6 +2,7 @@ const SAVE_KEY = "goblet.labyrinth.save";
 const TRANSCRIPT_KEY = "goblet.labyrinth.transcript";
 const SEED_KEY = "goblet.labyrinth.seed";
 const VERSION_KEY = "goblet.labyrinth.version";
+const SPLASH_MINIMUM_MS = 3000;
 
 const PY_FILES = [
   "__init__.py",
@@ -30,8 +31,11 @@ let canonicalTranscript = "";
 const commandHistory = [];
 let commandHistoryIndex = 0;
 let commandDraft = "";
+const splashStartedAt = performance.now();
 
 const els = {
+  loadingSplash: document.getElementById("loadingSplash"),
+  loadingSplashStatus: document.querySelector(".loading-splash-status"),
   status: document.getElementById("status"),
   transcript: document.getElementById("transcript"),
   transcriptEnd: document.getElementById("transcriptEnd"),
@@ -104,8 +108,22 @@ async function boot() {
     console.error(error);
     setStatus(`load failed: ${error.message}`, true);
   } finally {
+    await finishSplash();
     setBusy(false);
   }
+}
+
+async function finishSplash() {
+  const elapsed = performance.now() - splashStartedAt;
+  const remaining = Math.max(0, SPLASH_MINIMUM_MS - elapsed);
+  if (remaining > 0) {
+    await new Promise((resolve) => setTimeout(resolve, remaining));
+  }
+  els.loadingSplashStatus.textContent = els.status.textContent;
+  els.loadingSplash.classList.add("is-hidden");
+  els.loadingSplash.addEventListener("transitionend", () => {
+    els.loadingSplash.remove();
+  }, { once: true });
 }
 
 async function loadGobletPackage(pyodide) {
