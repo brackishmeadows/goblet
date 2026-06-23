@@ -84,7 +84,11 @@ els.commandInput.addEventListener("keydown", (event) => {
 });
 
 document.querySelectorAll("[data-command]").forEach((button) => {
-  button.addEventListener("click", () => runCommand(button.dataset.command));
+  button.addEventListener("click", () => {
+    const command = button.dataset.command;
+    rememberCommand(command);
+    runCommand(command);
+  });
 });
 
 const transcriptEndObserver = new IntersectionObserver(
