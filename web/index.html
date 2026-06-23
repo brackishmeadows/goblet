@@ -6,27 +6,28 @@
     <meta http-equiv="cache-control" content="no-cache">
     <meta http-equiv="pragma" content="no-cache">
     <title>Liar's Labyrinth</title>
-    <link rel="stylesheet" href="style.css?v=20260622-float-controls-4">
+    <link rel="stylesheet" href="style.css?v=20260622-title-border-state-3">
     <script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
   </head>
   <body>
     <main class="shell">
-      <header class="topbar">
-        <h1>Liar's Labyrinth</h1>
-        <div class="status" id="status">loading python...</div>
-      </header>
-
       <section class="controls" aria-label="Game controls">
         <label class="seed-label">
           seed
           <input id="seedInput" type="text" autocomplete="off" spellcheck="false" placeholder="seed">
         </label>
         <button id="newGameButton" type="button">New game</button>
-        <button id="continueButton" type="button">Continue</button>
         <button id="resetButton" type="button">Reset</button>
       </section>
 
-      <pre id="transcript" class="transcript" aria-live="polite"></pre>
+      <div class="transcript-frame">
+        <header class="topbar">
+          <h1>Liar's Labyrinth</h1>
+          <div class="status" id="status">loading python...</div>
+        </header>
+        <pre id="transcript" class="transcript" aria-live="polite"></pre>
+        <div id="transcriptEnd" class="transcript-end" aria-hidden="true"></div>
+      </div>
 
       <div class="command-panel">
         <form id="commandForm" class="command-row">
@@ -42,6 +43,6 @@
         </section>
       </div>
     </main>
-    <script src="app.js?v=20260622-float-controls-4"></script>
+    <script src="app.js?v=20260622-title-border-state-3"></script>
   </body>
 </html>

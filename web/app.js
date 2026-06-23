@@ -26,14 +26,19 @@ const PY_FILES = [
 
 let pyodideRuntime = null;
 let busy = true;
+let canonicalTranscript = "";
+const commandHistory = [];
+let commandHistoryIndex = 0;
+let commandDraft = "";
 
 const els = {
   status: document.getElementById("status"),
   transcript: document.getElementById("transcript"),
+  transcriptEnd: document.getElementById("transcriptEnd"),
   seedInput: document.getElementById("seedInput"),
   newGameButton: document.getElementById("newGameButton"),
-  continueButton: document.getElementById("continueButton"),
   resetButton: document.getElementById("resetButton"),
+  commandPanel: document.querySelector(".command-panel"),
   commandForm: document.getElementById("commandForm"),
   commandInput: document.getElementById("commandInput"),
   submitButton: document.getElementById("submitButton"),
@@ -45,7 +50,6 @@ setBusy(true);
 boot();
 
 els.newGameButton.addEventListener("click", () => startGame());
-els.continueButton.addEventListener("click", () => continueGame());
 els.resetButton.addEventListener("click", () => resetGame());
 els.copyButton.addEventListener("click", () => copyTranscript());
 els.downloadButton.addEventListener("click", () => downloadTranscript());
@@ -53,13 +57,40 @@ els.commandForm.addEventListener("submit", (event) => {
   event.preventDefault();
   const command = els.commandInput.value.trim();
   if (command) {
+    rememberCommand(command);
     runCommand(command);
+  }
+});
+els.commandInput.addEventListener("keydown", (event) => {
+  const isUndo = (event.ctrlKey || event.metaKey)
+    && !event.altKey
+    && !event.shiftKey
+    && event.key.toLowerCase() === "z";
+  if (isUndo && els.commandInput.value) {
+    event.preventDefault();
+    els.commandInput.value = "";
+    commandHistoryIndex = commandHistory.length;
+    commandDraft = "";
+    return;
+  }
+  if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+    event.preventDefault();
+    recallCommand(event.key === "ArrowUp" ? -1 : 1);
   }
 });
 
 document.querySelectorAll("[data-command]").forEach((button) => {
   button.addEventListener("click", () => runCommand(button.dataset.command));
 });
+
+const transcriptEndObserver = new IntersectionObserver(
+  ([entry]) => {
+    const isMobile = window.matchMedia("(max-width: 700px)").matches;
+    els.commandPanel.classList.toggle("show-secondary", isMobile && entry.isIntersecting);
+  },
+  { rootMargin: "0px 0px -60px 0px" },
+);
+transcriptEndObserver.observe(els.transcriptEnd);
 
 async function boot() {
   try {
@@ -95,15 +126,6 @@ async function startGame() {
   await callSession("start", seed || null);
 }
 
-async function continueGame() {
-  const saveData = localStorage.getItem(SAVE_KEY);
-  if (!saveData) {
-    setStatus("no local save");
-    return;
-  }
-  await callSession("show", saveData);
-}
-
 async function resetGame() {
   if (!window.confirm("Reset the local labyrinth save?")) {
     return;
@@ -112,7 +134,7 @@ async function resetGame() {
   localStorage.removeItem(TRANSCRIPT_KEY);
   localStorage.removeItem(SEED_KEY);
   localStorage.removeItem(VERSION_KEY);
-  renderTranscript("");
+  renderTranscript("", { scrollToTop: true });
   setStatus("reset");
 }
 
@@ -143,7 +165,10 @@ json.dumps(packet)
 `);
     const packet = JSON.parse(result);
     persistPacket(packet);
-    renderTranscript(packet.transcript);
+    renderTranscript(packet.transcript, {
+      scrollToLatestTurn: functionName === "step",
+      scrollToTop: functionName === "start",
+    });
     setStatus(statusText(packet));
   } catch (error) {
     console.error(error);
@@ -164,9 +189,131 @@ function persistPacket(packet) {
   }
 }
 
-function renderTranscript(text) {
-  els.transcript.textContent = text;
-  els.transcript.scrollTop = els.transcript.scrollHeight;
+function renderTranscript(text, { scrollToLatestTurn = false, scrollToTop = false } = {}) {
+  const previousDisplayText = transcriptForDisplay(canonicalTranscript);
+  canonicalTranscript = text;
+  const fragment = document.createDocumentFragment();
+  let latestCommandLine = null;
+  let responseLineIndex = 0;
+  const displayText = transcriptForDisplay(text);
+  const hasAppendedTurn = scrollToLatestTurn
+    && previousDisplayText
+    && displayText.startsWith(previousDisplayText);
+  const lines = displayText ? displayText.split("\n") : [];
+  let lineOffset = 0;
+  lines.forEach((line, index) => {
+    if (line.startsWith("> ")) {
+      const lineElement = document.createElement("span");
+      lineElement.classList.add("player-command");
+      lineElement.textContent = line;
+      latestCommandLine = lineElement;
+      fragment.append(lineElement);
+    } else if (hasAppendedTurn && lineOffset >= previousDisplayText.length && line) {
+      const lineElement = document.createElement("span");
+      lineElement.classList.add("new-response");
+      lineElement.style.setProperty("--reveal-delay", `${Math.min(responseLineIndex * 35, 140)}ms`);
+      lineElement.textContent = line;
+      responseLineIndex += 1;
+      fragment.append(lineElement);
+    } else {
+      fragment.append(document.createTextNode(line));
+    }
+    if (index < lines.length - 1) {
+      fragment.append(document.createTextNode("\n"));
+    }
+    lineOffset += line.length + 1;
+  });
+  els.transcript.replaceChildren(fragment);
+
+  requestAnimationFrame(() => {
+    if (scrollToTop) {
+      scrollTranscriptToTop();
+    } else if (scrollToLatestTurn && latestCommandLine) {
+      scrollTranscriptToLine(latestCommandLine);
+    } else if (window.matchMedia("(max-width: 700px)").matches) {
+      const transcriptBottom = window.scrollY + els.transcript.getBoundingClientRect().bottom;
+      const commandBarClearance = 72;
+      window.scrollTo(0, Math.max(0, transcriptBottom - window.innerHeight + commandBarClearance));
+    } else {
+      els.transcript.scrollTop = els.transcript.scrollHeight;
+    }
+  });
+}
+
+function transcriptForDisplay(text) {
+  if (!text) {
+    return "";
+  }
+  const lines = text.split("\n");
+  let titleIndex = 0;
+  if (lines[0]?.startsWith("random seed: ")) {
+    titleIndex = 1;
+  }
+  if (lines[titleIndex] !== "Liar's Labyrinth") {
+    return text;
+  }
+  let contentIndex = titleIndex + 1;
+  while (lines[contentIndex] === "") {
+    contentIndex += 1;
+  }
+  return lines.slice(contentIndex).join("\n");
+}
+
+function scrollTranscriptToLine(lineElement) {
+  const readingMargin = 12;
+  const lineTop = lineElement.getBoundingClientRect().top;
+  const behavior = preferredScrollBehavior();
+  if (window.matchMedia("(max-width: 700px)").matches) {
+    window.scrollTo({
+      top: Math.max(0, window.scrollY + lineTop - readingMargin),
+      behavior,
+    });
+    return;
+  }
+  const transcriptTop = els.transcript.getBoundingClientRect().top;
+  els.transcript.scrollTo({
+    top: Math.max(0, els.transcript.scrollTop + lineTop - transcriptTop - readingMargin),
+    behavior,
+  });
+}
+
+function scrollTranscriptToTop() {
+  const behavior = preferredScrollBehavior();
+  if (window.matchMedia("(max-width: 700px)").matches) {
+    window.scrollTo({ top: 0, behavior });
+    return;
+  }
+  els.transcript.scrollTo({ top: 0, behavior });
+}
+
+function preferredScrollBehavior() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+}
+
+function rememberCommand(command) {
+  commandHistory.push(command);
+  commandHistoryIndex = commandHistory.length;
+  commandDraft = "";
+}
+
+function recallCommand(direction) {
+  if (!commandHistory.length) {
+    return;
+  }
+  if (direction < 0) {
+    if (commandHistoryIndex === commandHistory.length) {
+      commandDraft = els.commandInput.value;
+    }
+    commandHistoryIndex = Math.max(0, commandHistoryIndex - 1);
+    els.commandInput.value = commandHistory[commandHistoryIndex];
+  } else if (commandHistoryIndex < commandHistory.length - 1) {
+    commandHistoryIndex += 1;
+    els.commandInput.value = commandHistory[commandHistoryIndex];
+  } else {
+    commandHistoryIndex = commandHistory.length;
+    els.commandInput.value = commandDraft;
+  }
+  els.commandInput.setSelectionRange(els.commandInput.value.length, els.commandInput.value.length);
 }
 
 function statusText(packet) {
@@ -179,13 +326,13 @@ function hasSave() {
 }
 
 async function copyTranscript() {
-  const text = localStorage.getItem(TRANSCRIPT_KEY) || els.transcript.textContent;
+  const text = localStorage.getItem(TRANSCRIPT_KEY) || canonicalTranscript;
   await navigator.clipboard.writeText(text);
   setStatus("transcript copied");
 }
 
 function downloadTranscript() {
-  const text = localStorage.getItem(TRANSCRIPT_KEY) || els.transcript.textContent;
+  const text = localStorage.getItem(TRANSCRIPT_KEY) || canonicalTranscript;
   const blob = new Blob([text], { type: "text/plain" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -201,7 +348,6 @@ function setBusy(value) {
   [
     els.seedInput,
     els.newGameButton,
-    els.continueButton,
     els.resetButton,
     els.commandInput,
     els.submitButton,
