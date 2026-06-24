@@ -1,3 +1,25 @@
+"""Turn-based Liar's Labyrinth game logic.
+
+This module is intentionally a single-file prototype, but it should still read
+as a program:
+
+1. Data model and constants.
+2. Public script, interactive, and post-command entry points.
+3. Labyrinth construction.
+4. Turn rendering, help, command normalization, validation, and parsing.
+5. Player and agent action resolution.
+6. Ask/answer systems: assessment, classic liars puzzles, Goblet questions,
+   world claims, and ordinary testimony.
+7. Movement, cups, sleep, poison, and endings.
+8. Agent intention, goals, hypotheses, memory, trust, and alias/render helpers.
+
+The novel parts are deterministic rather than random: push resistance cycles,
+fractional lie patterns, claim auditing, source-weighted assessment, and
+hypothesis formation all use visible state so scripted tests can characterize
+the game. Keep those algorithms named and local; if they spread, the file turns
+back into fog.
+"""
+
 from __future__ import annotations
 from dataclasses import dataclass, field
 import pickle
@@ -15,6 +37,11 @@ from .relation import relation_expression
 from .render import render_fraction, render_number
 from .subtract import subtract
 from .words import ONE, ZERO, WordNumber, is_zero
+
+
+# ---------------------------------------------------------------------------
+# Data Model
+# ---------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -214,6 +241,18 @@ class LiarsAsk:
 
 
 @dataclass(frozen=True)
+class LiarsAskParts:
+    target_name: str
+    raw_text: str
+
+
+@dataclass(frozen=True)
+class InlineLiarsStatement:
+    text: str
+    people: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class AssessmentAsk:
     target: Agent
     raw_subject: str
@@ -275,6 +314,13 @@ LIE = "lie"
 
 CLAIM_ASSESSMENT_PREFIX = "__claim__:"
 WITNESSES_ASSESSMENT_SUBJECT = "__witnesses__"
+LIARS_ASK_MARKERS = (" liars:", " liar puzzle:", " liars puzzle:")
+LIARS_WORLD_PREVIEW_LIMIT = 3
+
+
+# ---------------------------------------------------------------------------
+# Numeric Helpers
+# ---------------------------------------------------------------------------
 
 
 def lie_rate_fraction(lies: WordNumber) -> LieRate:
@@ -327,6 +373,11 @@ def count_up_to(value: WordNumber) -> Iterator[WordNumber]:
         yield current
         remaining = decrement_count(remaining)
         current = increment_count(current)
+
+
+# ---------------------------------------------------------------------------
+# Public Entry Points
+# ---------------------------------------------------------------------------
 
 
 def run_labyrinth_script(commands: list[str], random_seed: str | int | None = None) -> list[str]:
@@ -608,6 +659,11 @@ def is_player_line(line: str) -> bool:
         or line.startswith("> ")
         or line.startswith("condition: ")
     )
+
+
+# ---------------------------------------------------------------------------
+# Labyrinth Construction
+# ---------------------------------------------------------------------------
 
 
 def new_labyrinth() -> LabyrinthState:
@@ -1055,17 +1111,23 @@ def cup_claim_card(speaker: str, cup: Cup) -> ClaimCard:
     )
 
 
+# ---------------------------------------------------------------------------
+# Turn Rendering And Command Surface
+# ---------------------------------------------------------------------------
+
+
 def render_turn(state: LabyrinthState) -> list[str]:
     room = current_room(state)
+    present = present_agents(state)
     lines = [f"round {render_number(state.round_number)}: {room.name}"]
     lines.append(render_hp(state))
     if count_greater_than(state.player_turn_budget, ONE):
         lines.append(render_player_turns(state))
     lines.append("present:")
-    lines.extend(f"- {render_agent(agent)}" for agent in present_agents(state))
+    lines.extend(f"- {render_agent(agent)}" for agent in present)
     prepare_round_claims(state)
     lines.append("claims:")
-    for agent in present_agents(state):
+    for agent in present:
         lines.append(f"- {round_claim(state, agent)}")
     lines.append("cups:")
     for cup in room.cups.values():
@@ -2309,16 +2371,16 @@ def validate_player_command(state: LabyrinthState, command: str) -> str | None:
 def validate_ask_command(state: LabyrinthState, command: str) -> str | None:
     assessment_parsed = parse_assessment_ask_command(state, command)
     if isinstance(assessment_parsed, AssessmentAsk):
-        if assessment_parsed.target.sleeping:
-            return f"{render_agent(assessment_parsed.target)} is sleeping; slap them if you need them awake"
+        if error := sleeping_ask_target_error(assessment_parsed.target):
+            return error
         return None
     if isinstance(assessment_parsed, str):
         return assessment_parsed
 
     liars_parsed = parse_liars_ask_command(state, command)
     if isinstance(liars_parsed, LiarsAsk):
-        if liars_parsed.target.sleeping:
-            return f"{render_agent(liars_parsed.target)} is sleeping; slap them if you need them awake"
+        if error := sleeping_ask_target_error(liars_parsed.target):
+            return error
         try:
             evaluate_liars_claim_pair(liars_parsed)
         except ValueError as exc:
@@ -2329,8 +2391,8 @@ def validate_ask_command(state: LabyrinthState, command: str) -> str | None:
 
     goblet_parsed = parse_goblet_ask_command(state, command)
     if isinstance(goblet_parsed, GobletAsk):
-        if goblet_parsed.target.sleeping:
-            return f"{render_agent(goblet_parsed.target)} is sleeping; slap them if you need them awake"
+        if error := sleeping_ask_target_error(goblet_parsed.target):
+            return error
         try:
             evaluate_goblet_ask(goblet_parsed)
         except ValueError as exc:
@@ -2343,14 +2405,20 @@ def validate_ask_command(state: LabyrinthState, command: str) -> str | None:
     if isinstance(world_parsed, str):
         return world_parsed
     if isinstance(world_parsed, WorldAsk):
-        if world_parsed.target.sleeping:
-            return f"{render_agent(world_parsed.target)} is sleeping; slap them if you need them awake"
+        if error := sleeping_ask_target_error(world_parsed.target):
+            return error
         return None
 
     parsed = parse_ask_command(state, command)
     if isinstance(parsed, str):
         return parsed
     target, _, _ = parsed
+    if error := sleeping_ask_target_error(target):
+        return error
+    return None
+
+
+def sleeping_ask_target_error(target: Agent) -> str | None:
     if target.sleeping:
         return f"{render_agent(target)} is sleeping; slap them if you need them awake"
     return None
@@ -2375,6 +2443,35 @@ def validate_tell_command(state: LabyrinthState, command: str) -> str | None:
 
 
 
+# ---------------------------------------------------------------------------
+# Ask Parsing
+# ---------------------------------------------------------------------------
+
+
+def resolve_player_ask_target(state: LabyrinthState, target_name: str) -> tuple[Agent | None, str | None]:
+    target, error = resolve_agent_name(state, target_name)
+    if error:
+        return None, error
+    if target is None:
+        return None, f"you ask {render_topic(target_name)}, but no one by that name is here"
+    if not target.alive or target.room_index != state.room_index:
+        return None, f"you ask {render_topic(target_name)}, but they are not here"
+    return target, None
+
+
+def resolve_agent_ask_target(
+    state: LabyrinthState, asker: Agent, target_name: str
+) -> tuple[Agent | None, str | None]:
+    target, error = resolve_agent_name_from_room(state, target_name, asker.room_index)
+    if error:
+        return None, error
+    if target is None:
+        return None, f"{asker.name} cannot ask {render_topic(target_name)}; no one by that name is here"
+    if not target.alive or target.room_index != asker.room_index:
+        return None, f"{asker.name} cannot ask {render_topic(target_name)}; they are not here"
+    return target, None
+
+
 def parse_assessment_ask_command(state: LabyrinthState, command: str) -> AssessmentAsk | str | None:
     body = command.removeprefix("ask ").strip()
     if not body:
@@ -2396,13 +2493,9 @@ def parse_assessment_ask_command(state: LabyrinthState, command: str) -> Assessm
     if not raw_subject:
         return "ask whom to assess what?"
 
-    target, error = resolve_agent_name(state, target_name)
+    target, error = resolve_player_ask_target(state, target_name)
     if error:
         return error
-    if target is None:
-        return f"you ask {render_topic(target_name)}, but no one by that name is here"
-    if not target.alive or target.room_index != state.room_index:
-        return f"you ask {render_topic(target_name)}, but they are not here"
 
     subject, subject_error = resolve_assessment_subject(state, target, raw_subject)
     if subject_error:
@@ -2462,35 +2555,39 @@ def is_person_assessment_subject(state: LabyrinthState, subject: str) -> bool:
 
 def parse_liars_ask_command(state: LabyrinthState, command: str) -> LiarsAsk | str | None:
     body = command.removeprefix("ask ").strip()
-    lowered = body.lower()
-    markers = (" liars:", " liar puzzle:", " liars puzzle:")
-    marker_index = -1
-    marker = ""
-    for candidate in markers:
-        marker_index = lowered.find(candidate)
-        if marker_index >= 0:
-            marker = candidate
-            break
-    if marker_index < 0:
+    parts = split_liars_ask_body(body)
+    if parts is None:
         return None
-
-    target_name = body[:marker_index].strip()
-    raw_text = body[marker_index + len(marker):].strip()
-    if not target_name or not raw_text:
+    if not parts.target_name or not parts.raw_text:
         return "ask whom which liars puzzle?"
 
-    target, error = resolve_agent_name(state, target_name)
+    target, error = resolve_player_ask_target(state, parts.target_name)
     if error:
         return error
-    if target is None:
-        return f"you ask {render_topic(target_name)}, but no one by that name is here"
-    if not target.alive or target.room_index != state.room_index:
-        return f"you ask {render_topic(target_name)}, but they are not here"
 
-    puzzle_text, puzzle_error = inline_liars_puzzle_text(state, raw_text)
+    puzzle_text, puzzle_error = inline_liars_puzzle_text(state, parts.raw_text)
     if puzzle_error:
         return puzzle_error
-    return LiarsAsk(target=target, raw_text=raw_text, puzzle_text=puzzle_text)
+    return LiarsAsk(target=target, raw_text=parts.raw_text, puzzle_text=puzzle_text)
+
+
+def split_liars_ask_body(body: str) -> LiarsAskParts | None:
+    marker = find_liars_marker(body)
+    if marker is None:
+        return None
+    marker_index, marker_text = marker
+    target_name = body[:marker_index].strip()
+    raw_text = body[marker_index + len(marker_text):].strip()
+    return LiarsAskParts(target_name=target_name, raw_text=raw_text)
+
+
+def find_liars_marker(body: str) -> tuple[int, str] | None:
+    lowered = body.lower()
+    for candidate in LIARS_ASK_MARKERS:
+        marker_index = lowered.find(candidate)
+        if marker_index >= 0:
+            return marker_index, candidate
+    return None
 
 
 def inline_liars_puzzle_text(state: LabyrinthState, raw_text: str) -> tuple[str, str | None]:
@@ -2512,31 +2609,37 @@ def inline_liars_puzzle_text(state: LabyrinthState, raw_text: str) -> tuple[str,
             clause = clause[len("statements:"):].strip()
             if not clause:
                 continue
-        statement, names, error = parse_inline_liars_statement(state, clause)
+        statement, error = parse_inline_liars_statement(state, clause)
         if error:
             return "", error
-        for name in names:
+        if statement is None:
+            continue
+        for name in statement.people:
             if name not in people:
                 people.append(name)
-        statements.append(statement)
+        statements.append(statement.text)
 
     if not statements:
         return "", "liars puzzle needs at least one statement"
     return "people:\n" + "\n".join(people) + "\nstatements:\n" + "\n".join(statements), None
 
 
-def parse_inline_liars_statement(state: LabyrinthState, clause: str) -> tuple[str, list[str], str | None]:
+def parse_inline_liars_statement(
+    state: LabyrinthState, clause: str
+) -> tuple[InlineLiarsStatement | None, str | None]:
     match = re.fullmatch(r"(.+?)\s+calls\s+(.+?)\s+(a liar|honest)", clause.strip(), flags=re.IGNORECASE)
     if not match:
-        return "", [], f"unsupported liars statement: {clause}"
+        return None, f"unsupported liars statement: {clause}"
     speaker = canonical_liars_person_name(state, match.group(1).strip())
     target = canonical_liars_person_name(state, match.group(2).strip())
     kind = match.group(3).lower()
     if speaker is None or target is None:
-        return "", [], f"unsupported liars names in: {clause}"
+        return None, f"unsupported liars names in: {clause}"
     if kind == "a liar":
-        return f"{speaker} calls {target} a liar", [speaker, target], None
-    return f"{speaker} calls {target} honest", [speaker, target], None
+        text = f"{speaker} calls {target} a liar"
+    else:
+        text = f"{speaker} calls {target} honest"
+    return InlineLiarsStatement(text=text, people=(speaker, target)), None
 
 
 def canonical_liars_person_name(state: LabyrinthState, raw_name: str) -> str | None:
@@ -2573,13 +2676,9 @@ def parse_goblet_ask_command(state: LabyrinthState, command: str) -> GobletAsk |
         if not target_name or not expression:
             return "ask whom what Goblet question?"
 
-        target, error = resolve_agent_name(state, target_name)
+        target, error = resolve_player_ask_target(state, target_name)
         if error:
             return error
-        if target is None:
-            return f"you ask {render_topic(target_name)}, but no one by that name is here"
-        if not target.alive or target.room_index != state.room_index:
-            return f"you ask {render_topic(target_name)}, but they are not here"
 
         expression = clean_goblet_expression(mode, expression)
         if not expression:
@@ -2650,13 +2749,9 @@ def parse_world_ask_command(state: LabyrinthState, command: str) -> WorldAsk | s
         if not target_name or not expression:
             return "ask whom what?"
 
-        target, error = resolve_agent_name(state, target_name)
+        target, error = resolve_player_ask_target(state, target_name)
         if error:
             return error
-        if target is None:
-            return f"you ask {render_topic(target_name)}, but no one by that name is here"
-        if not target.alive or target.room_index != state.room_index:
-            return f"you ask {render_topic(target_name)}, but they are not here"
 
         resolved_expression = resolve_world_ask_expression(expression, target)
         subject, proposition = interpret_tell_message(state, resolved_expression)
@@ -2864,13 +2959,9 @@ def parse_ask_command(state: LabyrinthState, command: str) -> tuple[Agent, str, 
     if not target_name or not topic:
         return "ask whom about what?"
 
-    target, error = resolve_agent_name(state, target_name)
+    target, error = resolve_player_ask_target(state, target_name)
     if error:
         return error
-    if target is None:
-        return f"you ask {render_topic(target_name)}, but no one by that name is here"
-    if not target.alive or target.room_index != state.room_index:
-        return f"you ask {render_topic(target_name)}, but they are not here"
 
     if is_health_topic(topic):
         return target, topic, target.name
@@ -2905,13 +2996,9 @@ def parse_ask_command_for_agent(state: LabyrinthState, asker: Agent, command: st
     if not target_name or not topic:
         return "ask whom about what?"
 
-    target, error = resolve_agent_name_from_room(state, target_name, asker.room_index)
+    target, error = resolve_agent_ask_target(state, asker, target_name)
     if error:
         return error
-    if target is None:
-        return f"{asker.name} cannot ask {render_topic(target_name)}; no one by that name is here"
-    if not target.alive or target.room_index != asker.room_index:
-        return f"{asker.name} cannot ask {render_topic(target_name)}; they are not here"
 
     if is_health_topic(topic):
         return target, topic, target.name
@@ -3233,6 +3320,12 @@ def normalize_tell_proposition(state: LabyrinthState, message: str) -> str:
     # pretending we have a full semantic parser yet.
     return message.strip().rstrip(".")
 
+
+# ---------------------------------------------------------------------------
+# Turn Resolution
+# ---------------------------------------------------------------------------
+
+
 def resolve_turn(state: LabyrinthState, command: str) -> list[str]:
     lines, slapped = resolve_player_turn(state, command)
     state.slapped_this_round = slapped
@@ -3354,6 +3447,8 @@ def should_run_agent_phase(state: LabyrinthState) -> bool:
     return is_zero(player_turns_remaining(state))
 
 
+# Push resistance is a deterministic cycle, not a probability roll. That keeps
+# social force legible in demos and lets tests assert exact outcomes.
 
 PUSH_RESIST = "resist"
 PUSH_YIELD = "yield"
@@ -3568,9 +3663,14 @@ def resolve_player_action(state: LabyrinthState, command: str) -> list[str]:
     return [f"unknown action: {command}"]
 
 
+# ---------------------------------------------------------------------------
+# Ask Resolution And Assessment
+# ---------------------------------------------------------------------------
+
 
 def resolve_assessment_ask(state: LabyrinthState, asker: Agent, question: AssessmentAsk) -> list[str]:
     spoke_lie = next_claim_kind(question.target) == LIE
+    report: AssessmentReport | None = None
     if is_claim_assessment_subject(question.subject):
         claim = render_claim_assessment_claim(state, question.target, question.subject, lie=spoke_lie)
         spoken_likely = None
@@ -3606,8 +3706,7 @@ def resolve_assessment_ask(state: LabyrinthState, asker: Agent, question: Assess
         subjects=[question.subject],
     )
     record_claim_event(state, question.target, claim, room_index)
-    if spoken_likely is not None:
-        report = build_assessment_report(state, question.target, question.subject)
+    if report is not None and spoken_likely is not None:
         update_social_weight_from_assessment(state, question.target, report, spoken_likely, room_index)
     asker.observances.append(f"{asker.name} asked {question.target.name} to assess {question.subject}")
     question.target.observances.append(f"{asker.name} asked {question.target.name} to assess {question.subject}")
@@ -3615,6 +3714,7 @@ def resolve_assessment_ask(state: LabyrinthState, asker: Agent, question: Assess
     lines = [ask_line, claim]
     lines.extend(maybe_tire_fixed_witness(state, question.target))
     return lines
+
 
 def evaluate_assessment_claim_pair(state: LabyrinthState, question: AssessmentAsk) -> tuple[str, str]:
     if is_claim_assessment_subject(question.subject):
@@ -3638,6 +3738,9 @@ def evaluate_assessment_claim_pair(state: LabyrinthState, question: AssessmentAs
     return truthful, distorted
 
 
+# Source-weighted assessment is the main local adjudication algorithm:
+# direct evidence anchors the result, testimony contributes weighted support,
+# and source weights come from each assessor's remembered reliability.
 def build_assessment_report(state: LabyrinthState, assessor: Agent, subject: str) -> AssessmentReport:
     entries = assessor.memory.entries_about(subject)
     evidence: list[AssessmentEvidence] = []
@@ -4383,6 +4486,7 @@ def render_say_says(sources: list[str]) -> str:
 def render_are_is(sources: list[str] | tuple[str, ...]) -> str:
     return "is" if len(set(sources)) == 1 else "are"
 
+
 def distorted_assessment_proposition(state: LabyrinthState, report: AssessmentReport) -> str:
     if report.alternatives:
         return report.alternatives[lie_variant(report.subject + "assessment", len(report.alternatives))]
@@ -4407,6 +4511,10 @@ def default_false_assessment(state: LabyrinthState, subject: str) -> str:
         options = [f"{subject} is unreliable", f"{subject} is trusted"]
     return options[lie_variant(subject + "false", len(options))]
 
+
+# Specialized ask forms below all follow the same outer shape: parse a target
+# and question, compute truthful/distorted claims, let the target's lie cycle
+# choose the spoken claim, then record public and private memory as needed.
 def resolve_liars_ask(state: LabyrinthState, asker: Agent, question: LiarsAsk) -> list[str]:
     truthful_claim, distorted_claim = evaluate_liars_claim_pair(question)
     claim = speak_claim(question.target, truthful_claim, distorted_claim)
@@ -4470,8 +4578,8 @@ def summarize_liars_worlds(puzzle: Any, survivors: list[dict[str, str]]) -> str:
         return "contradictory: no possible worlds"
     if len(survivors) == 1:
         return f"forced: {render_world(survivors[0], puzzle.people)}"
-    worlds = "; ".join(render_world(world, puzzle.people) for world in survivors[:THREE_VALUE])
-    if len(survivors) > THREE_VALUE:
+    worlds = "; ".join(render_world(world, puzzle.people) for world in survivors[:LIARS_WORLD_PREVIEW_LIMIT])
+    if len(survivors) > LIARS_WORLD_PREVIEW_LIMIT:
         worlds += "; and more"
     return f"ambiguous: {worlds}"
 
@@ -4488,10 +4596,6 @@ def distort_liars_worlds(puzzle: Any, survivors: list[dict[str, str]]) -> str:
     if rejected:
         return f"forced: {render_world(rejected[0], puzzle.people)}"
     return "contradictory: no possible worlds"
-
-
-THREE_VALUE = 3
-
 
 def resolve_goblet_ask(state: LabyrinthState, asker: Agent, question: GobletAsk) -> list[str]:
     truthful_claim, distorted_claim = evaluate_goblet_claim_pair(question)
@@ -4671,6 +4775,11 @@ def resolve_ask(state: LabyrinthState, asker: Agent, command: str) -> list[str]:
              else [f"{render_agent_verb(asker, 'ask')} {render_agent(target)} about {rendered_topic}", claim])
     lines.extend(maybe_tire_fixed_witness(state, target))
     return lines
+
+
+# ---------------------------------------------------------------------------
+# World Answers And Claim Distortion
+# ---------------------------------------------------------------------------
 
 
 def render_ask_topic(state: LabyrinthState, topic: str, subject: str) -> str:
@@ -5021,6 +5130,11 @@ def lie_variant(seed_text: str, count: int) -> int:
     if count <= 0:
         return 0
     return sum(ord(char) for char in seed_text) % count
+
+
+# ---------------------------------------------------------------------------
+# Direct Actions: Tell, Move, Sip, Sleep, Poison
+# ---------------------------------------------------------------------------
 
 
 def resolve_tell(state: LabyrinthState, speaker: Agent, command: str) -> list[str]:
@@ -5638,6 +5752,11 @@ def advance_round(state: LabyrinthState) -> None:
     record_round_observations(state)
 
 
+# ---------------------------------------------------------------------------
+# Agent Claims, Intentions, Goals, And Hypotheses
+# ---------------------------------------------------------------------------
+
+
 def prepare_round_claims(state: LabyrinthState) -> None:
     for agent in present_agents(state):
         if agent.name not in state.round_claims:
@@ -5675,6 +5794,8 @@ def next_claim_kind(agent: Agent) -> str:
     return claim_kind
 
 
+# Fractional lie rates are deterministic cycles. "Two out of four lies" means
+# an agent cycles through two lies and two truths; no hidden random roll occurs.
 def claim_truth_pattern(lie_rate: LieRate) -> list[str]:
     if lie_rate.out_of != FOUR:
         raise ValueError("labyrinth lie rates currently resolve over four claims")
@@ -6256,6 +6377,11 @@ def ignorance_claim(agent: Agent, subject: str) -> str:
     return f"{render_agent(agent)} claims they know nothing useful about {render_name(subject) if has_camel_boundary(subject) else render_topic(subject)}."
 
 
+# ---------------------------------------------------------------------------
+# Memory, Claim Auditing, Trust, And Inference
+# ---------------------------------------------------------------------------
+
+
 CLAIM_AUDIT_KINDS = {"heard_claim", "reported_claim", "claim_made"}
 
 
@@ -6432,15 +6558,16 @@ CERTAINTY_ORDER = {
 
 def record_round_observations(state: LabyrinthState) -> None:
     room = current_room(state)
+    present = present_agents(state)
     round_key = f"round:{render_number(state.round_number)}:room:{state.room_index}"
     if round_key in state.recorded_round_memory:
         return
     state.recorded_round_memory.add(round_key)
 
-    claims = [round_claim(state, agent) for agent in present_agents(state)]
+    claims = [round_claim(state, agent) for agent in present]
     snapshot_text = (
         f"round {render_number(state.round_number)} in {room.name}; "
-        f"present: {', '.join(render_agent(agent) for agent in present_agents(state))}; "
+        f"present: {', '.join(render_agent(agent) for agent in present)}; "
         f"cups: {', '.join(render_name(cup.name) + ' ' + render_cup_fullness(cup.fifths) for cup in room.cups.values())}; "
         f"doors: {', '.join(render_name(door.name) for door in room.doors.values())}."
     )
@@ -6468,7 +6595,7 @@ def record_round_observations(state: LabyrinthState) -> None:
                     proposition=f"{cup.name} is empty",
                     certainty="seen directly",
                 )
-    for agent, claim_text in zip(present_agents(state), claims):
+    for agent, claim_text in zip(present, claims):
         record_claim_event(state, agent, claim_text, state.room_index)
 
 
@@ -6581,6 +6708,8 @@ def remember(
     maybe_form_hypothesis_from_entry(state, observer, entry)
 
 
+# Remembering is intentionally active: direct observations can create inferred
+# facts, audit old claims, update trust, and spawn future test goals.
 def maybe_infer_from_entry(state: LabyrinthState, observer: Agent, entry: MemoryEntry) -> None:
     if entry.kind == "inference" or not entry.proposition:
         return
@@ -7046,6 +7175,11 @@ def render_turn_ordinal(count: WordNumber) -> str:
     }
     cardinal = render_number(count)
     return ordinals.get(cardinal, f"turn {cardinal}")
+
+
+# ---------------------------------------------------------------------------
+# Entity Resolution, Aliases, And Rendering
+# ---------------------------------------------------------------------------
 
 
 def present_agents(state: LabyrinthState) -> list[Agent]:
