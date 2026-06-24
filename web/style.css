@@ -145,6 +145,10 @@ input {
   pointer-events: none;
 }
 
+.topbar.shows-transcript-top {
+  border-top-color: var(--line);
+}
+
 h1 {
   margin: 0;
   font-size: 1.15rem;

@@ -36,6 +36,7 @@ const splashStartedAt = performance.now();
 const els = {
   loadingSplash: document.getElementById("loadingSplash"),
   loadingSplashStatus: document.querySelector(".loading-splash-status"),
+  topbar: document.querySelector(".topbar"),
   status: document.getElementById("status"),
   transcript: document.getElementById("transcript"),
   transcriptEnd: document.getElementById("transcriptEnd"),
@@ -99,6 +100,9 @@ const transcriptEndObserver = new IntersectionObserver(
   { rootMargin: "0px 0px -60px 0px" },
 );
 transcriptEndObserver.observe(els.transcriptEnd);
+window.addEventListener("scroll", updateTopbarBorder, { passive: true });
+window.addEventListener("resize", updateTopbarBorder);
+updateTopbarBorder();
 
 async function boot() {
   try {
@@ -310,6 +314,13 @@ function scrollTranscriptToTop() {
 
 function preferredScrollBehavior() {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+}
+
+function updateTopbarBorder() {
+  const rect = els.transcript.getBoundingClientRect();
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+  const topIsVisible = rect.top >= 0 && rect.top <= viewportHeight;
+  els.topbar.classList.toggle("shows-transcript-top", topIsVisible);
 }
 
 function rememberCommand(command) {
