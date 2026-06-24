@@ -432,12 +432,12 @@ def run_labyrinth_script(commands: list[str], random_seed: str | int | None = No
                 should_render_room = False
         lines.append("")
     lines.extend(render_ending(state))
-    return lines
+    return polish_transcript_lines(lines)
 
 
 def run_labyrinth_interactive(input_func=input, print_func=print, random_seed: str | int | None = None) -> None:
     state = new_random_labyrinth(random_seed) if random_seed is not None else new_labyrinth()
-    write = lambda line="": print_func(colorize_interactive_line(line))
+    write = lambda line="": print_func(colorize_interactive_line(polish_transcript_line(line)))
     write("Liar's Labyrinth")
     write("commands: ask, tell, sip, move, push, slap, wait, look, recall, help, quit")
     write("")
@@ -526,6 +526,7 @@ def start_labyrinth_post(path: str, random_seed: str | int | None = None) -> lis
     lines.append("")
     lines.extend(step_labyrinth_post_session(session, None))
     save_labyrinth_post_session(path, session)
+    lines = polish_transcript_lines(lines)
     append_labyrinth_post_log(path, lines, mode="w")
     return lines
 
@@ -538,10 +539,10 @@ def show_labyrinth_post(path: str) -> list[str]:
 def render_labyrinth_post_session(session: LabyrinthPostSession) -> list[str]:
     state = session.state
     if session.resigned:
-        return ["you have already left the labyrinth unresolved"]
+        return polish_transcript_lines(["you have already left the labyrinth unresolved"])
     if state.escaped or not state.player.alive:
-        return render_ending(state)
-    return render_turn(state)
+        return polish_transcript_lines(render_ending(state))
+    return polish_transcript_lines(render_turn(state))
 
 
 def step_labyrinth_post(path: str, command: str) -> list[str]:
@@ -565,7 +566,7 @@ def step_labyrinth_post_session(session: LabyrinthPostSession, command: str | No
     lines: list[str] = []
 
     if session.resigned:
-        return ["you have already left the labyrinth unresolved"]
+        return polish_transcript_lines(["you have already left the labyrinth unresolved"])
 
     lines.extend(resolve_post_sleep_until_ready(state))
 
@@ -579,18 +580,18 @@ def step_labyrinth_post_session(session: LabyrinthPostSession, command: str | No
         session.should_render_room = False
 
     if command is None or not command.strip():
-        return lines
+        return polish_transcript_lines(lines)
 
     command = command.strip()
     lines.append(f"> {command}")
     if command in ("quit", "exit"):
         session.resigned = True
         lines.append("you leave the labyrinth unresolved")
-        return lines
+        return polish_transcript_lines(lines)
 
     if command == "look":
         lines.extend(render_turn(state))
-        return lines
+        return polish_transcript_lines(lines)
 
     outcome = resolve_turn_checked(state, command)
     lines.extend(outcome.lines)
@@ -616,7 +617,64 @@ def step_labyrinth_post_session(session: LabyrinthPostSession, command: str | No
     if state.escaped or not state.player.alive:
         session.should_render_room = False
         lines.extend(render_ending(state))
-    return lines
+    return polish_transcript_lines(lines)
+
+
+def polish_transcript_lines(lines: list[str]) -> list[str]:
+    return [polish_transcript_line(line) for line in lines]
+
+
+def polish_transcript_line(line: str) -> str:
+    if not should_polish_transcript_line(line):
+        return line
+    polished = line[0].upper() + line[1:]
+    polished = capitalize_after_sentence_break(polished)
+    if polished.endswith(("?", "!", ".", ":")):
+        return polished
+    return polished + ("?" if is_question_transcript_line(polished) else ".")
+
+
+def capitalize_after_sentence_break(text: str) -> str:
+    def uppercase_match(match: re.Match[str]) -> str:
+        return match.group(1) + match.group(2).upper()
+
+    return re.sub(r"([.!?]\s+)([a-z])", uppercase_match, text)
+
+
+def should_polish_transcript_line(line: str) -> bool:
+    if not line:
+        return False
+    if line.startswith(("> ", "- ")):
+        return False
+    if line in {
+        "actions:",
+        "claims:",
+        "cups:",
+        "doors:",
+        "final state:",
+        "form:",
+        "intentions:",
+        "present:",
+        "present witnesses:",
+        "visible cups:",
+        "visible doors:",
+    }:
+        return False
+    if line.startswith((
+        "round ",
+        "condition: ",
+        "Liar's Labyrinth",
+        "random seed: ",
+        "play-by-post state: ",
+        "commands: ",
+    )):
+        return False
+    return True
+
+
+def is_question_transcript_line(line: str) -> bool:
+    lowered = line.lower()
+    return " ask " in lowered and any(marker in lowered for marker in (" what ", " if ", " whether "))
 
 
 def resolve_post_sleep_until_ready(state: LabyrinthState) -> list[str]:
@@ -655,7 +713,9 @@ def colorize_interactive_line(line: str) -> str:
 def is_player_line(line: str) -> bool:
     return (
         line.startswith("you ")
+        or line.startswith("You ")
         or line.startswith("your ")
+        or line.startswith("Your ")
         or line.startswith("> ")
         or line.startswith("condition: ")
     )
@@ -3391,8 +3451,8 @@ def resolve_agent_phase(state: LabyrinthState, slapped: str | None = None) -> li
             continue
         if name == slapped:
             continue
-        observed = agent.room_index == state.room_index
         if agent.sleeping:
+            observed = agent.room_index == state.room_index
             before = len(lines)
             lines.extend(resolve_sleep_phase(state, agent))
             if not observed:
@@ -3402,17 +3462,49 @@ def resolve_agent_phase(state: LabyrinthState, slapped: str | None = None) -> li
             intention = current_agent_intention(state, agent)
             if intention is None:
                 break
+            observed_before = agent.room_index == state.room_index
+            before_room_index = agent_room_index(state, agent)
             before = len(lines)
-            if observed and count_greater_than(agent.speed, ONE):
+            if observed_before and count_greater_than(agent.speed, ONE):
                 lines.append(f"{name}'s {render_turn_ordinal(turn_count)} turn")
             lines.extend(resolve_agent_action(state, agent, intention))
-            if not observed:
-                lines[before:] = []
+            observed_after = agent.alive and agent.room_index == state.room_index
+            if not observed_before:
+                if observed_after and before_room_index != state.room_index:
+                    arrival_text = render_agent_arrival(state, agent, intention, before_room_index)
+                    record_agent_arrival(state, agent, arrival_text)
+                    lines[before:] = [arrival_text]
+                else:
+                    lines[before:] = []
             if state.escaped or not agent.alive or agent.sleeping:
                 break
         if state.escaped:
             break
     return lines
+
+
+def render_agent_arrival(
+    state: LabyrinthState, agent: Agent, intention: str, from_room_index: int
+) -> str:
+    if intention.startswith("move "):
+        door_name = intention.removeprefix("move ").strip()
+        door = state.rooms[from_room_index].doors.get(door_name)
+        if door is not None:
+            return f"{render_agent(agent)} arrives through {render_name(door.name)}"
+    return f"{render_agent(agent)} arrives"
+
+
+def record_agent_arrival(state: LabyrinthState, agent: Agent, arrival_text: str) -> None:
+    record_room_event(
+        state,
+        state.room_index,
+        kind="action",
+        text=arrival_text + ".",
+        source=agent.name,
+        subject=agent.name,
+        proposition=f"{agent.name} arrived in {current_room(state).name}",
+        certainty="seen directly",
+    )
 
 
 def begin_player_round(state: LabyrinthState) -> None:
@@ -5621,7 +5713,7 @@ def resolve_poison_ticks(state: LabyrinthState) -> list[str]:
         damage(agent, ONE)
         agent.poison_bites = increment_count(agent.poison_bites)
         if agent.alive:
-            text = f"poison bites {render_agent(agent)}; {render_agent_verb(agent, 'lose')} one hp"
+            text = render_poison_bite_text(agent)
         else:
             text = f"poison claims {render_agent(agent)}; {render_agent_verb(agent, 'die')}"
         record_room_event(
@@ -5652,6 +5744,13 @@ def resolve_poison_ticks(state: LabyrinthState) -> list[str]:
             if visible:
                 lines.append(clear_text)
     return lines
+
+
+def render_poison_bite_text(agent: Agent) -> str:
+    if agent.name == "You":
+        return f"poison bites you; you lose one hp"
+    return f"poison bites {render_agent(agent)}; {render_agent(agent)} looks {render_condition_word(agent)}"
+
 
 def clear_poison(agent: Agent) -> None:
     agent.poisoned = False

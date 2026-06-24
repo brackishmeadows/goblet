@@ -55,7 +55,7 @@ class BrowserSessionTests(unittest.TestCase):
         packet = browser_session.step(packet["save_data"], "quit")
 
         self.assertEqual(packet["status"], "resigned")
-        self.assertIn("you leave the labyrinth unresolved", packet["transcript"])
+        self.assertIn("You leave the labyrinth unresolved.", packet["transcript"])
 
 
 def run_seeded_transcript(seed: str) -> str:

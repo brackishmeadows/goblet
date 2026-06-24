@@ -34,81 +34,88 @@ class LabyrinthTests(unittest.TestCase):
         self.assertIn("round one: first room", output)
         self.assertIn("Aster has one turn; intends to move through the brass door", output)
         self.assertIn("Bram has one turn; intends to ask the wax moth about the brass door", output)
-        self.assertIn("you slap Aster; Aster's action is stopped", output)
-        self.assertIn("you move through the iron door", output)
+        self.assertIn("You slap Aster; Aster's action is stopped", output)
+        self.assertIn("You move through the iron door", output)
         self.assertIn("round three: second room", output)
         self.assertIn("the iron rook claims the wax cup is poison.", output)
         self.assertNotIn("acts somewhere else", output)
-        self.assertIn("you move through the glass door", output)
-        self.assertIn("you escaped the labyrinth", output)
+        self.assertIn("You move through the glass door", output)
+        self.assertIn("You escaped the labyrinth", output)
 
     def test_peril_door_kills_player(self):
         output = "\n".join(run_labyrinth_script(["move through the brass door"]))
 
-        self.assertIn("you move through the brass door", output)
-        self.assertIn("the brass door leads to peril; you die", output)
+        self.assertIn("You move through the brass door", output)
+        self.assertIn("The brass door leads to peril; you die", output)
         self.assertIn("condition: health zero", output)
-        self.assertIn("you did not survive", output)
+        self.assertIn("You did not survive", output)
 
     def test_poison_cup_hurts_player(self):
         output = "\n".join(run_labyrinth_script(["sip the bone cup"]))
 
-        self.assertIn("you sip the bone cup", output)
-        self.assertIn("the bone cup is poison; you become poisoned", output)
-        self.assertIn("poison stirs in you, but does not bite yet", output)
+        self.assertIn("You sip the bone cup", output)
+        self.assertIn("The bone cup is poison; you become poisoned", output)
+        self.assertIn("Poison stirs in you, but does not bite yet", output)
         self.assertIn("condition: health full poisoned", output)
+
+    def test_agent_poison_tick_reports_condition_not_hp(self):
+        output = "\n".join(run_labyrinth_script(["tell Bram to drink bone", "wait"]))
+
+        self.assertIn("The bone cup is poison; Bram becomes poisoned", output)
+        self.assertIn("Poison bites Bram; Bram looks uneasy", output)
+        self.assertNotIn("Bram loses one hp", output)
 
     def test_drink_aliases_to_sip(self):
         output = "\n".join(run_labyrinth_script(["drink the bone cup"]))
 
         self.assertIn("> drink the bone cup", output)
-        self.assertIn("you sip the bone cup", output)
-        self.assertIn("the bone cup is poison; you become poisoned", output)
+        self.assertIn("You sip the bone cup", output)
+        self.assertIn("The bone cup is poison; you become poisoned", output)
 
     def test_bare_sip_and_drink_prompt_for_target(self):
         output = "\n".join(run_labyrinth_script(["sip", "drink"]))
 
         self.assertIn("> sip", output)
-        self.assertIn("sip what?", output)
+        self.assertIn("Sip what?", output)
         self.assertIn("visible cups:", output)
         self.assertIn("- the bone cup: very full", output)
         self.assertIn("> drink", output)
-        self.assertEqual(output.count("sip what?"), 2)
+        self.assertEqual(output.count("Sip what?"), 2)
         self.assertEqual(output.count("visible cups:"), 2)
-        self.assertNotIn("unknown action: sip", output)
+        self.assertNotIn("Unknown action: sip", output)
 
     def test_bare_move_and_go_prompt_for_target(self):
         output = "\n".join(run_labyrinth_script(["move", "go"]))
 
         self.assertIn("> move", output)
-        self.assertIn("move where?", output)
+        self.assertIn("Move where?", output)
         self.assertIn("visible doors:", output)
         self.assertIn("- the brass door", output)
         self.assertIn("> go", output)
-        self.assertEqual(output.count("move where?"), 2)
+        self.assertEqual(output.count("Move where?"), 2)
         self.assertEqual(output.count("visible doors:"), 2)
-        self.assertNotIn("unknown action: move", output)
+        self.assertNotIn("Unknown action: move", output)
 
     def test_bare_social_commands_prompt_for_targets(self):
         output = "\n".join(run_labyrinth_script(["ask", "tell", "push", "slap"]))
 
         self.assertIn("> ask", output)
-        self.assertIn("ask whom about what?", output)
+        self.assertIn("Ask whom about what?", output)
         self.assertIn("- ask Aster about the brass door", output)
         self.assertIn("> tell", output)
-        self.assertIn("tell whom what?", output)
+        self.assertIn("Tell whom what?", output)
         self.assertIn("- tell Aster the bone cup is poison", output)
         self.assertIn("> push", output)
-        self.assertIn("push whom where?", output)
+        self.assertIn("Push whom where?", output)
         self.assertIn("- push Aster through brass", output)
         self.assertIn("> slap", output)
-        self.assertIn("slap whom?", output)
+        self.assertIn("Slap whom?", output)
         self.assertIn("- slap Aster", output)
         self.assertIn("present witnesses:", output)
-        self.assertNotIn("unknown action: ask", output)
-        self.assertNotIn("unknown action: tell", output)
-        self.assertNotIn("unknown action: push", output)
-        self.assertNotIn("unknown action: slap", output)
+        self.assertNotIn("Unknown action: ask", output)
+        self.assertNotIn("Unknown action: tell", output)
+        self.assertNotIn("Unknown action: push", output)
+        self.assertNotIn("Unknown action: slap", output)
 
     def test_actions_lists_available_actions_without_advancing(self):
         output = "\n".join(run_labyrinth_script(["actions"]))
@@ -125,8 +132,8 @@ class LabyrinthTests(unittest.TestCase):
         output = "\n".join(run_labyrinth_script(["assess"]))
 
         self.assertIn("> assess", output)
-        self.assertIn("ask whom to assess what? Try: ask Aster to assess Vey", output)
-        self.assertNotIn("unknown action: assess", output)
+        self.assertIn("Ask whom to assess what? Try: ask Aster to assess Vey", output)
+        self.assertNotIn("Unknown action: assess", output)
 
     def test_help_aliases_to_actions(self):
         output = "\n".join(run_labyrinth_script(["help"]))
@@ -140,15 +147,15 @@ class LabyrinthTests(unittest.TestCase):
         output = "\n".join(run_labyrinth_script(["wait"]))
 
         self.assertIn("> wait", output)
-        self.assertIn("you wait", output)
+        self.assertIn("You wait", output)
         self.assertIn("Aster moves through the brass door", output)
-        self.assertIn("the brass door leads to peril; Aster dies", output)
+        self.assertIn("The brass door leads to peril; Aster dies", output)
 
     def test_help_wait_explains_action(self):
         output = "\n".join(run_labyrinth_script(["help wait"]))
 
         self.assertIn("> help wait", output)
-        self.assertIn("wait spends your action and lets the room act.", output)
+        self.assertIn("Wait spends your action and lets the room act.", output)
         self.assertIn("- wait", output)
         self.assertNotIn("Aster moves through the brass door", output)
 
@@ -195,8 +202,16 @@ class LabyrinthTests(unittest.TestCase):
         output = "\n".join(run_labyrinth_script(["go iron"]))
 
         self.assertIn("> go iron", output)
-        self.assertIn("you move through the iron door", output)
-        self.assertIn("you press deeper into the labyrinth", output)
+        self.assertIn("You move through the iron door", output)
+        self.assertIn("You press deeper into the labyrinth", output)
+
+    def test_following_agents_telegraph_arrival_after_player_moves(self):
+        output = "\n".join(run_labyrinth_script(["slap Aster", "move iron"]))
+
+        self.assertIn("You move through the iron door", output)
+        self.assertIn("Aster arrives through the iron door", output)
+        self.assertIn("Bram arrives through the iron door", output)
+        self.assertIn("Vey arrives through the iron door", output)
 
     def test_condition_only_lists_player_health(self):
         output = "\n".join(run_labyrinth_script(["sip glass", "go iron", "look"]))
@@ -224,20 +239,20 @@ class LabyrinthTests(unittest.TestCase):
     def test_ask_about_agent_reports_condition_word(self):
         output = "\n".join(run_labyrinth_script(["ask Bram about Aster"]))
 
-        self.assertIn("you ask Bram about Aster", output)
+        self.assertIn("You ask Bram about Aster", output)
         self.assertIn("Bram claims Aster looks proud.", output)
 
     def test_ask_about_health_reports_condition_word(self):
         output = "\n".join(run_labyrinth_script(["ask Aster about health"]))
 
-        self.assertIn("you ask Aster about health", output)
+        self.assertIn("You ask Aster about health", output)
         self.assertIn("Aster claims Aster looks proud.", output)
 
     def test_person_assessment_does_not_reveal_hidden_lie_profile(self):
         output = "\n".join(run_labyrinth_script(["ask Aster assess Vey"]))
 
         self.assertIn("Aster assesses Vey: Aster has no proven reliability record for Vey yet.", output)
-        self.assertIn("in memory: one untested claim.", output)
+        self.assertIn("In memory: one untested claim.", output)
         self.assertNotIn("Vey often tells the truth", output)
         self.assertNotIn("as a witness, Aster weighs them as a steady witness", output)
 
@@ -250,36 +265,36 @@ class LabyrinthTests(unittest.TestCase):
         output = "\n".join(run_labyrinth_script(["push Aster iron"]))
 
         self.assertIn("> push Aster iron", output)
-        self.assertIn("you push Aster toward the iron door", output)
+        self.assertIn("You push Aster toward the iron door", output)
 
     def test_bare_goblet_question_after_target(self):
         output = "\n".join(run_labyrinth_script(["ask Bram two plus two"]))
 
         self.assertIn("> ask Bram two plus two", output)
-        self.assertIn("you ask Bram what two plus two", output)
+        self.assertIn("You ask Bram what two plus two", output)
         self.assertIn("Bram claims two plus two is four.", output)
 
     def test_ask_can_omit_about_for_topic_questions(self):
         output = "\n".join(run_labyrinth_script(["ask Bram bone cup"]))
 
         self.assertIn("> ask Bram bone cup", output)
-        self.assertIn("you ask Bram about the bone cup", output)
+        self.assertIn("You ask Bram about the bone cup", output)
         self.assertIn("Bram claims the bone cup is poison.", output)
 
     def test_ask_if_world_claim_is_not_goblet_question(self):
         output = "\n".join(run_labyrinth_script(["ask moth if iron door leads to peril"]))
 
         self.assertIn("> ask moth if iron door leads to peril", output)
-        self.assertIn("you ask the wax moth if iron door leads to peril", output)
-        self.assertIn("the wax moth claims the iron door leads onward.", output)
+        self.assertIn("You ask the wax moth if iron door leads to peril", output)
+        self.assertIn("The wax moth claims the iron door leads onward.", output)
         self.assertNotIn("that does not seem like a Goblet question", output)
 
     def test_ask_if_world_safe_claim_is_not_goblet_question(self):
         output = "\n".join(run_labyrinth_script(["ask moth if iron door is safe"]))
 
         self.assertIn("> ask moth if iron door is safe", output)
-        self.assertIn("you ask the wax moth if iron door is safe", output)
-        self.assertIn("the wax moth claims the iron door leads onward.", output)
+        self.assertIn("You ask the wax moth if iron door is safe", output)
+        self.assertIn("The wax moth claims the iron door leads onward.", output)
         self.assertNotIn("expected symbolic comparison expression", output)
 
     def test_ask_if_it_is_material_resolves_to_addressee(self):
@@ -290,8 +305,8 @@ class LabyrinthTests(unittest.TestCase):
             "ask glass crow if it is glass",
         ]))
 
-        self.assertIn("you ask the glass crow if it is glass", output)
-        self.assertIn("the glass crow claims the glass crow is glass.", output)
+        self.assertIn("You ask the glass crow if it is glass", output)
+        self.assertIn("The glass crow claims the glass crow is glass.", output)
 
     def test_ask_if_the_creature_kind_is_material_resolves_alias(self):
         output = "\n".join(run_labyrinth_script([
@@ -301,20 +316,20 @@ class LabyrinthTests(unittest.TestCase):
             "ask glass crow if the crow is glass",
         ]))
 
-        self.assertIn("you ask the glass crow if the crow is glass", output)
-        self.assertIn("the glass crow claims the glass crow is glass.", output)
+        self.assertIn("You ask the glass crow if the crow is glass", output)
+        self.assertIn("The glass crow claims the glass crow is glass.", output)
 
     def test_truth_cup_uses_player_agreement(self):
         output = "\n".join(run_labyrinth_script(["go iron", "drink iron"]))
 
-        self.assertIn("you sip the iron cup", output)
-        self.assertIn("the iron cup sharpens truth; you seem clearer and always tell the truth", output)
+        self.assertIn("You sip the iron cup", output)
+        self.assertIn("The iron cup sharpens truth; you seem clearer and always tell the truth", output)
 
     def test_recall_lists_claims_from_or_about_topic(self):
         output = "\n".join(run_labyrinth_script(["recall moth"]))
 
         self.assertIn("> recall moth", output)
-        self.assertIn("you remember these things from or about the wax moth:", output)
+        self.assertIn("You remember these things from or about the wax moth:", output)
         self.assertIn("- the wax moth said: the iron door leads onward; it seemed untested then and is still untested", output)
         self.assertNotIn("Bram asks", output)
 
@@ -322,13 +337,13 @@ class LabyrinthTests(unittest.TestCase):
         output = "\n".join(run_labyrinth_script(["remember iron door"]))
 
         self.assertIn("> remember iron door", output)
-        self.assertIn("you remember these things from or about the iron door:", output)
+        self.assertIn("You remember these things from or about the iron door:", output)
         self.assertIn("the wax moth said: the iron door leads onward; it seemed untested then and is still untested", output)
 
     def test_recall_door_excludes_unrelated_claims_from_same_witnesses(self):
         output = "\n".join(run_labyrinth_script(["drink glass", "recall brass"]))
 
-        self.assertIn("you remember these things from or about the brass door:", output)
+        self.assertIn("You remember these things from or about the brass door:", output)
         self.assertIn("Aster said: the brass door is safe; it seemed untested then, but later failed", output)
         self.assertIn("you saw Aster act: Aster moves through the brass door", output)
         self.assertIn("you learned: the brass door leads to peril; Aster dies", output)
@@ -339,7 +354,7 @@ class LabyrinthTests(unittest.TestCase):
     def test_recall_cup_includes_direct_drinking_memory(self):
         output = "\n".join(run_labyrinth_script(["drink glass", "recall cup"]))
 
-        self.assertIn("you remember these things from or about cup:", output)
+        self.assertIn("You remember these things from or about cup:", output)
         self.assertIn("- you did: you sip the glass cup", output)
         self.assertIn("- you learned: the glass cup grants haste; you feel quick next round", output)
         self.assertIn("- the wax moth said: the bone cup is poison; it seemed untested then and is still untested", output)
@@ -348,13 +363,13 @@ class LabyrinthTests(unittest.TestCase):
     def test_recall_marks_claim_that_later_proved_true(self):
         output = "\n".join(run_labyrinth_script(["move iron", "sip wax cup", "recall wax cup"]))
 
-        self.assertIn("you remember these things from or about the wax cup:", output)
+        self.assertIn("You remember these things from or about the wax cup:", output)
         self.assertIn("the iron rook said: the wax cup is poison; it seemed untested then, and later proved true", output)
 
     def test_recall_marks_claim_that_later_failed(self):
         output = "\n".join(run_labyrinth_script(["move iron", "move silver", "sip salt cup", "recall salt cup"]))
 
-        self.assertIn("you remember these things from or about the salt cup:", output)
+        self.assertIn("You remember these things from or about the salt cup:", output)
         self.assertIn("the glass crow said: the salt cup grants haste; it seemed untested then, but later failed", output)
 
     def test_recall_specific_cup_includes_empty_memory(self):
@@ -367,44 +382,44 @@ class LabyrinthTests(unittest.TestCase):
             "recall glass cup",
         ]))
 
-        self.assertIn("you remember these things from or about the glass cup:", output)
+        self.assertIn("You remember these things from or about the glass cup:", output)
         self.assertIn("- you learned: the glass cup is empty", output)
 
     def test_tell_can_instruct_claimant_to_drink(self):
         output = "\n".join(run_labyrinth_script(["tell Bram to drink glass"]))
 
         self.assertIn("> tell Bram to drink glass", output)
-        self.assertIn("you tell Bram to sip the glass cup; Bram considers it", output)
+        self.assertIn("You tell Bram to sip the glass cup; Bram considers it", output)
         self.assertIn("Bram sips the glass cup", output)
-        self.assertIn("the glass cup grants haste; Bram feels quick next round", output)
+        self.assertIn("The glass cup grants haste; Bram feels quick next round", output)
 
     def test_tell_instruction_can_override_default_intention(self):
         output = "\n".join(run_labyrinth_script(["tell Aster to move iron"]))
 
-        self.assertIn("you tell Aster to move through the iron door; Aster considers it", output)
+        self.assertIn("You tell Aster to move through the iron door; Aster considers it", output)
         self.assertIn("Aster moves through the iron door", output)
-        self.assertNotIn("the brass door leads to peril; Aster dies", output)
+        self.assertNotIn("The brass door leads to peril; Aster dies", output)
 
     def test_tell_instruction_to_is_optional(self):
         output = "\n".join(run_labyrinth_script(["tell Aster go iron"]))
 
         self.assertIn("> tell Aster go iron", output)
-        self.assertIn("you tell Aster to move through the iron door; Aster considers it", output)
+        self.assertIn("You tell Aster to move through the iron door; Aster considers it", output)
         self.assertIn("Aster moves through the iron door", output)
 
     def test_tell_instruction_accepts_go_through(self):
         output = "\n".join(run_labyrinth_script(["tell Aster go through iron"]))
 
-        self.assertIn("you tell Aster to move through the iron door; Aster considers it", output)
+        self.assertIn("You tell Aster to move through the iron door; Aster considers it", output)
         self.assertIn("Aster moves through the iron door", output)
 
     def test_sleeping_potion_skips_next_round_then_wakes_player(self):
         output = "\n".join(run_labyrinth_script(["move through the iron door", "sip oak cup", "look"]))
 
-        self.assertIn("you sip the oak cup", output)
-        self.assertIn("the oak cup is sleeping potion; you fall asleep", output)
-        self.assertIn("you sleep through the round", output)
-        self.assertIn("you wake", output)
+        self.assertIn("You sip the oak cup", output)
+        self.assertIn("The oak cup is sleeping potion; you fall asleep", output)
+        self.assertIn("You sleep through the round", output)
+        self.assertIn("You wake", output)
         self.assertIn("round four: second room", output)
         self.assertNotIn("round three: second room", output)
         self.assertNotIn("Bram moves through the silver door", output)
@@ -412,7 +427,7 @@ class LabyrinthTests(unittest.TestCase):
     def test_player_does_not_remember_events_while_asleep(self):
         output = "\n".join(run_labyrinth_script(["move through the iron door", "sip oak cup", "recall wax cup"]))
 
-        self.assertIn("you sleep through the round", output)
+        self.assertIn("You sleep through the round", output)
         self.assertNotIn("Bram asks Vey about the wax cup", output)
         self.assertNotIn("Vey said: Vey claims they are testing whether the wax cup is poison.", output)
 
@@ -450,7 +465,7 @@ class LabyrinthTests(unittest.TestCase):
         joined = "\n".join(outputs)
         self.assertIn("Liar's Labyrinth", joined)
         self.assertIn("round one: first room", joined)
-        self.assertIn("you leave the labyrinth unresolved", joined)
+        self.assertIn("You leave the labyrinth unresolved", joined)
 
     def test_random_labyrinth_uses_seeded_generation(self):
         first = "\n".join(run_labyrinth_script(["look"], random_seed="salt"))
