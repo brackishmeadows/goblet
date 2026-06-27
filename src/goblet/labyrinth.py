@@ -1055,14 +1055,20 @@ def random_room_intentions(
     intentions: dict[str, str] = {}
     witness = beast_names[room_index]
     subjects = list(room.doors) + list(room.cups)
+    rng.shuffle(subjects)
+    used_actions: set[str] = set()
     for traveler in traveler_names:
-        style = rng.choice(["ask", "sip", "move"])
-        if style == "ask":
-            intentions[traveler] = f"ask {witness} about {rng.choice(subjects)}"
-        elif style == "sip" and room.cups:
-            intentions[traveler] = f"sip {rng.choice(list(room.cups))}"
+        if not subjects:
+            break
+        subject = subjects[len(intentions) % len(subjects)]
+        if subject in room.doors:
+            candidates = [f"ask {witness} about {subject}", f"move {subject}"]
         else:
-            intentions[traveler] = f"move {rng.choice(list(room.doors))}"
+            candidates = [f"ask {witness} about {subject}", f"sip {subject}"]
+        rng.shuffle(candidates)
+        action = next((candidate for candidate in candidates if candidate not in used_actions), candidates[0])
+        used_actions.add(action)
+        intentions[traveler] = action
     return intentions
 
 
@@ -1235,7 +1241,18 @@ def normalize_bare_agent_instruction(state: LabyrinthState, command: str) -> str
     words = command.split()
     if len(words) < 2:
         return command
-    if words[0] in {"ask", "tell", "sip", "move", "push", "slap", "wait", "look", "recall", "remember", "help"}:
+    if words[0] in {
+        "ask", "question", "query",
+        "tell", "order", "command",
+        "sip", "drink", "taste",
+        "move", "go", "enter", "walk",
+        "push", "shove", "force", "send",
+        "slap", "hit", "wake",
+        "wait", "pass", "skip",
+        "look", "inspect", "examine", "x",
+        "recall", "remember",
+        "help",
+    }:
         return command
 
     for length in range(min(3, len(words) - 1), 0, -1):
@@ -1250,6 +1267,8 @@ def normalize_bare_agent_instruction(state: LabyrinthState, command: str) -> str
 
 
 def normalize_player_command(command: str) -> str:
+    if command in {"pass", "skip"}:
+        return "wait"
     if command == "witnesses":
         return "look witnesses"
     if command == "doors":
@@ -1264,14 +1283,78 @@ def normalize_player_command(command: str) -> str:
         return "look"
     if command.startswith("inspect "):
         return "look " + command.removeprefix("inspect ").strip()
+    if command == "examine":
+        return "look"
+    if command.startswith("examine "):
+        return "look " + command.removeprefix("examine ").strip()
+    if command == "x":
+        return "look"
+    if command.startswith("x "):
+        return "look " + command.removeprefix("x ").strip()
+    if command == "look at":
+        return "look"
+    if command.startswith("look at "):
+        return "look " + command.removeprefix("look at ").strip()
     if command == "go":
         return "move"
     if command.startswith("go "):
         return "move " + command.removeprefix("go ").strip()
+    if command == "enter":
+        return "move"
+    if command.startswith("enter "):
+        return "move " + command.removeprefix("enter ").strip()
+    if command == "walk":
+        return "move"
+    if command.startswith("walk "):
+        return "move " + command.removeprefix("walk ").strip()
+    if command == "open":
+        return "move"
+    if command.startswith("open "):
+        return "move " + command.removeprefix("open ").strip()
     if command == "drink":
         return "sip"
     if command.startswith("drink "):
         return "sip " + command.removeprefix("drink ").strip()
+    if command == "taste":
+        return "sip"
+    if command.startswith("taste "):
+        return "sip " + command.removeprefix("taste ").strip()
+    if command == "question":
+        return "ask"
+    if command.startswith("question "):
+        return "ask " + command.removeprefix("question ").strip()
+    if command == "query":
+        return "ask"
+    if command.startswith("query "):
+        return "ask " + command.removeprefix("query ").strip()
+    if command == "order":
+        return "tell"
+    if command.startswith("order "):
+        return "tell " + command.removeprefix("order ").strip()
+    if command == "command":
+        return "tell"
+    if command.startswith("command "):
+        return "tell " + command.removeprefix("command ").strip()
+    if command == "shove":
+        return "push"
+    if command.startswith("shove "):
+        return "push " + command.removeprefix("shove ").strip()
+    if command == "force":
+        return "push"
+    if command.startswith("force "):
+        return "push " + command.removeprefix("force ").strip()
+    if command == "send":
+        return "push"
+    if command.startswith("send "):
+        return "push " + command.removeprefix("send ").strip()
+    if command == "hit":
+        return "slap"
+    if command.startswith("hit "):
+        return "slap " + command.removeprefix("hit ").strip()
+    if command == "wake":
+        return "slap"
+    if command.startswith("wake "):
+        return "slap " + command.removeprefix("wake ").strip()
     return command
 
 
@@ -3625,7 +3708,7 @@ def parse_push_command(state: LabyrinthState, command: str) -> tuple[Agent, Door
     target_raw = ""
     door_raw = ""
     lowered = body.lower()
-    for marker in (" through ", " into ", " to "):
+    for marker in (" through ", " though ", " into ", " in ", " toward ", " towards ", " to ", " at "):
         marker_index = lowered.find(marker)
         if marker_index >= 0:
             target_raw = body[:marker_index].strip()
@@ -5859,30 +5942,46 @@ def advance_round(state: LabyrinthState) -> None:
 def prepare_round_claims(state: LabyrinthState) -> None:
     for agent in present_agents(state):
         if agent.name not in state.round_claims:
-            state.round_claims[agent.name] = next_claim(agent)
+            state.round_claims[agent.name] = next_claim(state, agent)
 
 
 def round_claim(state: LabyrinthState, agent: Agent) -> str:
     prepare_round_claims(state)
     claim = state.round_claims.get(agent.name)
     if claim is None:
-        claim = next_claim(agent)
+        claim = next_claim(state, agent)
         state.round_claims[agent.name] = claim
     return claim
 
 
-def next_claim(agent: Agent) -> str:
+def next_claim(state: LabyrinthState, agent: Agent) -> str:
     # The claims section is for public claims, not an inbox. Observances still
     # live in agent memory and can be retrieved through ask, but they no longer
     # leak into round claims as "remembers:" diary sludge.
     if not agent.claims:
         return f"{render_agent(agent)} makes no claim."
-    claim = agent.claims.pop(0)
-    agent.claims.append(claim)
+
+    # Claims are public, present-tense behavior. A traveller can remember a
+    # previous room perfectly well when asked, but should not start a new round
+    # announcing a door or cup the player cannot currently see.
+    claim: ClaimCard | None = None
+    for _ in range(len(agent.claims)):
+        candidate = agent.claims.pop(0)
+        agent.claims.append(candidate)
+        if claim_card_is_current(state, agent, candidate):
+            claim = candidate
+            break
+    if claim is None:
+        return f"{render_agent(agent)} makes no claim."
     claim_kind = next_claim_kind(agent)
     if claim_kind == LIE:
         return claim.lie
     return claim.truth
+
+
+def claim_card_is_current(state: LabyrinthState, agent: Agent, claim: ClaimCard) -> bool:
+    subjects = extract_subjects(state, f"{claim.truth} {claim.lie}")
+    return all(subject_is_in_room(state, subject, agent.room_index) for subject in subjects)
 
 
 def next_claim_kind(agent: Agent) -> str:
@@ -6198,7 +6297,12 @@ def maybe_form_hypothesis_from_entry(state: LabyrinthState, observer: Agent, ent
     if any(h.proposition == proposition and h.subject == subject and h.status == "active" for h in observer.hypotheses):
         return
 
-    test_action = test_action_for_hypothesis(state, observer, subject, proposition, entry.source)
+    reserved_actions = reserved_intention_actions_in_room(state, observer)
+    reserved_subjects = {action_subject(action) for action in reserved_actions}
+    if subject in reserved_subjects:
+        test_action = None
+    else:
+        test_action = test_action_for_hypothesis(state, observer, subject, proposition, entry.source, reserved_actions)
     state.hypothesis_sequence += 1
     hypothesis = Hypothesis(
         id=f"hypothesis-{state.hypothesis_sequence}",
@@ -6330,8 +6434,11 @@ def test_action_for_hypothesis(
     subject: str,
     proposition: str,
     source: str | None,
+    reserved_actions: set[str] | None = None,
 ) -> str | None:
     text = normalize_alias(proposition)
+    if reserved_actions is None:
+        reserved_actions = set()
 
     # Only object hypotheses become active goals for now. Person/social
     # hypotheses are archived, but they should not make agents chase witnesses
@@ -6341,23 +6448,48 @@ def test_action_for_hypothesis(
 
     # First try a social test: ask another present witness. This keeps fragile
     # agents from instantly testing every door with their body.
-    witness = choose_witness_for_subject(state, observer, subject, source)
+    witness = choose_witness_for_subject(state, observer, subject, source, reserved_actions)
     if witness is not None:
         return f"ask {witness.name} about {subject}"
 
     if is_cup_subject(state, subject):
         if "poison" in text or "empty" in text or "sleep" in text:
             return None
-        return f"sip {subject}"
+        action = f"sip {subject}"
+        return None if action in reserved_actions else action
     if is_door_subject(state, subject):
         if "leads to peril" in text:
             return None
         if "safe" in text or "leads onward" in text or "exit" in text:
-            return f"move {subject}"
+            action = f"move {subject}"
+            return None if action in reserved_actions else action
     return None
 
 
-def choose_witness_for_subject(state: LabyrinthState, observer: Agent, subject: str, source: str | None) -> Agent | None:
+def reserved_intention_actions_in_room(state: LabyrinthState, observer: Agent) -> set[str]:
+    room = state.rooms[observer.room_index]
+    reserved: set[str] = set()
+    for agent in state.claimants.values():
+        if agent.name == observer.name or agent.stationary or not agent.alive or agent.room_index != observer.room_index:
+            continue
+        for goal in agent.goals:
+            if goal.status == "active" and goal_action_is_available(state, agent, goal.action):
+                reserved.add(goal.action)
+        default_action = room.intentions.get(agent.name)
+        if default_action is not None and action_is_reasonable_for_agent(state, agent, default_action):
+            reserved.add(default_action)
+    return reserved
+
+
+def choose_witness_for_subject(
+    state: LabyrinthState,
+    observer: Agent,
+    subject: str,
+    source: str | None,
+    reserved_actions: set[str] | None = None,
+) -> Agent | None:
+    if reserved_actions is None:
+        reserved_actions = set()
     present = [
         agent
         for agent in present_agents(state)
@@ -6367,7 +6499,10 @@ def choose_witness_for_subject(state: LabyrinthState, observer: Agent, subject: 
         return None
     # Prefer stationary creatures as oracles, then truthier-looking agents.
     present.sort(key=lambda agent: (not agent.stationary, agent.belief_rate != "low", agent.name))
-    return present[0]
+    for candidate in present:
+        if f"ask {candidate.name} about {subject}" not in reserved_actions:
+            return candidate
+    return None
 
 
 def update_hypotheses_from_entry(observer: Agent, entry: MemoryEntry) -> None:
@@ -7404,6 +7539,14 @@ def parse_target(command: str, prefix: str) -> str:
     target = command.removeprefix(prefix).strip()
     if target.startswith("through "):
         target = target.removeprefix("through ").strip()
+    if target.startswith("though "):
+        target = target.removeprefix("though ").strip()
+    if target.startswith("into "):
+        target = target.removeprefix("into ").strip()
+    if target.startswith("in "):
+        target = target.removeprefix("in ").strip()
+    if target.startswith("to "):
+        target = target.removeprefix("to ").strip()
     if target.startswith("the "):
         target = target.removeprefix("the ").strip()
     return "".join(part.capitalize() for part in target.split())

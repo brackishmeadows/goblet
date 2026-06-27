@@ -10,6 +10,7 @@ from goblet.labyrinth import (
     current_agent_intention,
     new_labyrinth,
     render_agent_verb,
+    round_claim,
     resolve_sip,
     run_labyrinth_interactive,
     run_labyrinth_script,
@@ -17,6 +18,14 @@ from goblet.labyrinth import (
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+
+
+def intention_subject(intention: str) -> str:
+    if " about " in intention:
+        return intention.rsplit(" about ", 1)[1]
+    if " through " in intention:
+        return intention.rsplit(" through ", 1)[1]
+    return intention.rsplit(" ", 1)[1]
 
 
 class LabyrinthTests(unittest.TestCase):
@@ -33,7 +42,7 @@ class LabyrinthTests(unittest.TestCase):
 
         self.assertIn("round one: first room", output)
         self.assertIn("Aster has one turn; intends to move through the brass door", output)
-        self.assertIn("Bram has one turn; intends to ask the wax moth about the brass door", output)
+        self.assertIn("Bram has one turn; intends to sip the glass cup", output)
         self.assertIn("You slap Aster; Aster's action is stopped", output)
         self.assertIn("You move through the iron door", output)
         self.assertIn("round three: second room", output)
@@ -166,6 +175,36 @@ class LabyrinthTests(unittest.TestCase):
         self.assertIn("Aster looks proud.", output)
         self.assertNotIn("Aster moves through the brass door", output)
 
+    def test_examine_and_x_alias_to_look(self):
+        output = "\n".join(run_labyrinth_script(["examine Aster", "x iron door"]))
+
+        self.assertIn("> examine Aster", output)
+        self.assertIn("Aster looks proud.", output)
+        self.assertIn("> x iron door", output)
+        self.assertIn("The iron door stands here.", output)
+        self.assertNotIn("Aster moves through the brass door", output)
+
+    def test_look_at_aliases_to_look(self):
+        output = "\n".join(run_labyrinth_script(["look at iron door"]))
+
+        self.assertIn("> look at iron door", output)
+        self.assertIn("The iron door stands here.", output)
+        self.assertNotIn("Aster moves through the brass door", output)
+
+    def test_round_claims_only_name_current_room_subjects(self):
+        state = new_labyrinth()
+        aster = state.claimants["Aster"]
+        state.room_index = 1
+        state.player.room_index = 1
+        aster.room_index = 1
+        state.round_claims.clear()
+
+        claim = round_claim(state, aster)
+
+        self.assertIn("bone door", claim)
+        self.assertNotIn("brass door", claim)
+        self.assertNotIn("glass cup", claim)
+
     def test_witnesses_lists_present_agents_without_advancing(self):
         output = "\n".join(run_labyrinth_script(["witnesses", "look witnesses"]))
 
@@ -204,6 +243,22 @@ class LabyrinthTests(unittest.TestCase):
         self.assertIn("> go iron", output)
         self.assertIn("You move through the iron door", output)
         self.assertIn("You press deeper into the labyrinth", output)
+
+    def test_enter_walk_and_open_alias_to_move(self):
+        output = "\n".join(run_labyrinth_script(["enter to iron"]))
+
+        self.assertIn("> enter to iron", output)
+        self.assertIn("You move through the iron door", output)
+
+        output = "\n".join(run_labyrinth_script(["walk through iron"]))
+
+        self.assertIn("> walk through iron", output)
+        self.assertIn("You move through the iron door", output)
+
+        output = "\n".join(run_labyrinth_script(["open iron door"]))
+
+        self.assertIn("> open iron door", output)
+        self.assertIn("You move through the iron door", output)
 
     def test_following_agents_telegraph_arrival_after_player_moves(self):
         output = "\n".join(run_labyrinth_script(["slap Aster", "move iron"]))
@@ -266,6 +321,43 @@ class LabyrinthTests(unittest.TestCase):
 
         self.assertIn("> push Aster iron", output)
         self.assertIn("You push Aster toward the iron door", output)
+
+    def test_push_accepts_more_forceful_aliases_and_door_markers(self):
+        output = "\n".join(run_labyrinth_script(["shove Aster toward iron"]))
+
+        self.assertIn("> shove Aster toward iron", output)
+        self.assertIn("You push Aster toward the iron door", output)
+
+        output = "\n".join(run_labyrinth_script(["force Aster though the iron door"]))
+
+        self.assertIn("> force Aster though the iron door", output)
+        self.assertIn("You push Aster toward the iron door", output)
+
+        output = "\n".join(run_labyrinth_script(["send Aster in iron"]))
+
+        self.assertIn("> send Aster in iron", output)
+        self.assertIn("You push Aster toward the iron door", output)
+
+    def test_other_main_verb_aliases(self):
+        output = "\n".join(run_labyrinth_script(["question Bram bone cup"]))
+
+        self.assertIn("> question Bram bone cup", output)
+        self.assertIn("You ask Bram about the bone cup", output)
+
+        output = "\n".join(run_labyrinth_script(["order Aster go iron"]))
+
+        self.assertIn("> order Aster go iron", output)
+        self.assertIn("You tell Aster to move through the iron door; Aster considers it", output)
+
+        output = "\n".join(run_labyrinth_script(["taste glass"]))
+
+        self.assertIn("> taste glass", output)
+        self.assertIn("You sip the glass cup", output)
+
+        output = "\n".join(run_labyrinth_script(["hit Aster"]))
+
+        self.assertIn("> hit Aster", output)
+        self.assertIn("You slap Aster", output)
 
     def test_bare_goblet_question_after_target(self):
         output = "\n".join(run_labyrinth_script(["ask Bram two plus two"]))
@@ -473,6 +565,20 @@ class LabyrinthTests(unittest.TestCase):
 
         self.assertEqual(first, second)
         self.assertIn("round one:", first)
+
+    def test_random_opening_intentions_do_not_duplicate_actions(self):
+        output = "\n".join(run_labyrinth_script(["look"], random_seed="0"))
+        opening = output[:output.index("> look")]
+        intentions = [
+            line.split("intends to ", 1)[1]
+            for line in opening.splitlines()
+            if "; intends to " in line
+        ]
+        subjects = [intention_subject(intention) for intention in intentions]
+
+        self.assertGreater(len(intentions), 1)
+        self.assertEqual(len(intentions), len(set(intentions)))
+        self.assertEqual(len(subjects), len(set(subjects)))
 
 
 if __name__ == "__main__":
